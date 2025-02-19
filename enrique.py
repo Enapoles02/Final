@@ -25,6 +25,6 @@ try:
 except Exception as e:
     st.error(f"⚠️ Error al conectar con Firebase: {e}")
 
-            st.success("Evento añadido!")
+    st.success("Evento añadido!")
 
 st.sidebar.write("🔹 **Desarrollado por tu bot favorito 🤖**")
