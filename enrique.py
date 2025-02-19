@@ -4,7 +4,8 @@ from firebase_admin import credentials, firestore
 import json
 
 # Cargar configuración de Firebase desde secrets
-firebase_config = json.loads(json.dumps(st.secrets["firebase"]))
+firebase_config = dict(st.secrets["firebase"])
+firebase_config["private_key"] = firebase_config["private_key"].replace("\\n", "\n")  # Corrige los saltos de línea
 
 # Inicializar Firebase solo si no está inicializado
 if not firebase_admin._apps:
