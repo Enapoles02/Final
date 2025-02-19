@@ -1,61 +1,123 @@
 import streamlit as st
-import json
 import firebase_admin
 from firebase_admin import credentials, firestore
-import datetime
+import json
+from datetime import datetime
 
-# Cargar configuración de Firebase desde los secrets de Streamlit
-firebase_config = json.loads(json.dumps(st.secrets["firebase"]))
-
-# Inicializar Firebase si no está ya inicializado
+# Cargar credenciales de Firebase desde los secrets de Streamlit
 if not firebase_admin._apps:
-    cred = credentials.Certificate(firebase_config)
+    cred = credentials.Certificate(json.loads(st.secrets["firebase"]))
     firebase_admin.initialize_app(cred)
 
 db = firestore.client()
 
-# Función para obtener acciones de la pizarra
-def get_actions():
-    docs = db.collection("actions").stream()
-    return [{"id": doc.id, **doc.to_dict()} for doc in docs]
+# Título de la app
+st.title("🔥 Daily Huddle - Enrique 🔥")
 
-# Inicializar sesión para manejar estado
-if "show_action_form" not in st.session_state:
-    st.session_state["show_action_form"] = False
+# Sidebar con las pestañas
+menu = ["Overview", "Attendance", "Top 3", "Action Board", "Communications", "Calendar"]
+choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu)
 
-# Título principal
-st.title("📌 Daily Huddle - Enrique")
+# ---------- PESTAÑA 1: OVERVIEW ----------
+if choice == "Overview":
+    st.subheader("📋 ¿Qué es el Daily Huddle?")
+    st.write("""
+    Bienvenido a tu Daily Huddle. Aquí podrás registrar tu asistencia, prioridades, acciones pendientes y eventos importantes del equipo.
+    \n👈 Usa la barra lateral para navegar entre las diferentes secciones.
+    """)
+    st.success("✅ Firebase se conectó correctamente.")
 
-# Botón para mostrar el formulario
-if st.button("➕ Agregar Acción"):
-    st.session_state["show_action_form"] = not st.session_state["show_action_form"]
+# ---------- PESTAÑA 2: ATTENDANCE ----------
+elif choice == "Attendance":
+    st.subheader("📝 Registro de Asistencia")
 
-# Mostrar formulario solo si el botón ha sido presionado
-if st.session_state["show_action_form"]:
-    st.subheader("Agregar Nueva Acción")
-    action_text = st.text_area("Describe la acción:", key="action_input")
-    action_priority = st.selectbox("Prioridad:", ["Alta", "Media", "Baja"], key="priority_input")
+    # Selección de estado de ánimo con stickers/emojis
+    st.write("💡 ¿Cómo te sientes hoy?")
+    feelings = {
+        "😃": "Feliz",
+        "😐": "Normal",
+        "😔": "Triste",
+        "😡": "Molesto",
+        "😴": "Cansado",
+        "🤒": "Enfermo"
+    }
+    selected_feeling = st.radio("Selecciona tu estado de ánimo:", list(feelings.keys()))
+
+    # Pregunta de salud
+    health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
+
+    # Guardar en Firestore
+    if st.button("✅ Registrar asistencia"):
+        doc_ref = db.collection("attendance").document("Enrique")
+        doc_ref.set({
+            "fecha": datetime.now().strftime("%Y-%m-%d"),
+            "estado_animo": feelings[selected_feeling],
+            "problema_salud": health_problem
+        })
+        st.success("✅ Asistencia registrada correctamente.")
+
+# ---------- PESTAÑA 3: TOP 3 ----------
+elif choice == "Top 3":
+    st.subheader("📌 Top 3 Prioridades")
+
+    prioridad1 = st.text_input("1️⃣ Prioridad más importante")
+    prioridad2 = st.text_input("2️⃣ Segunda prioridad")
+    prioridad3 = st.text_input("3️⃣ Tercera prioridad")
+
+    if st.button("📌 Guardar prioridades"):
+        doc_ref = db.collection("top3").document("Enrique")
+        doc_ref.set({
+            "fecha": datetime.now().strftime("%Y-%m-%d"),
+            "prioridad_1": prioridad1,
+            "prioridad_2": prioridad2,
+            "prioridad_3": prioridad3
+        })
+        st.success("✅ Prioridades guardadas.")
+
+# ---------- PESTAÑA 4: ACTION BOARD ----------
+elif choice == "Action Board":
+    st.subheader("✅ Acciones y Seguimiento")
+
+    accion = st.text_input("✍️ Describe la acción")
+    estado = st.selectbox("📌 Estado:", ["Pendiente", "En proceso", "Completado"])
+
+    if st.button("✅ Guardar acción"):
+        doc_ref = db.collection("actions").document()
+        doc_ref.set({
+            "usuario": "Enrique",
+            "fecha": datetime.now().strftime("%Y-%m-%d"),
+            "accion": accion,
+            "estado": estado
+        })
+        st.success("✅ Acción guardada.")
+
+# ---------- PESTAÑA 5: COMMUNICATIONS ----------
+elif choice == "Communications":
+    st.subheader("📢 Mensajes Importantes")
+
+    mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
     
-    if st.button("Guardar acción"):
-        if action_text:
-            action_data = {
-                "text": action_text,
-                "priority": action_priority,
-                "timestamp": datetime.datetime.utcnow()
-            }
-            db.collection("actions").add(action_data)
-            st.success("✅ Acción guardada correctamente")
-            st.session_state["show_action_form"] = False
-            st.experimental_rerun()  # Recargar para reflejar cambios
-        else:
-            st.error("⚠️ Debes escribir una acción antes de guardar.")
+    if st.button("📩 Enviar mensaje"):
+        doc_ref = db.collection("communications").document()
+        doc_ref.set({
+            "usuario": "Enrique",
+            "fecha": datetime.now().strftime("%Y-%m-%d"),
+            "mensaje": mensaje
+        })
+        st.success("✅ Mensaje enviado.")
 
-# Sección de la Pizarra de Acciones
-st.subheader("📌 Pizarra de Acciones")
-actions = get_actions()
+# ---------- PESTAÑA 6: CALENDAR ----------
+elif choice == "Calendar":
+    st.subheader("📅 Eventos y Fechas Clave")
 
-if actions:
-    for action in actions:
-        st.write(f"📝 **{action['text']}** | 🔥 *{action['priority']}* | ⏳ {action['timestamp'].strftime('%Y-%m-%d %H:%M')}")
-else:
-    st.info("No hay acciones registradas aún.")
+    evento = st.text_input("📌 Nombre del evento")
+    fecha_evento = st.date_input("📅 Selecciona la fecha")
+
+    if st.button("✅ Agendar evento"):
+        doc_ref = db.collection("calendar").document()
+        doc_ref.set({
+            "usuario": "Enrique",
+            "evento": evento,
+            "fecha": fecha_evento.strftime("%Y-%m-%d")
+        })
+        st.success("✅ Evento agendado.")
