@@ -97,9 +97,7 @@ elif choice == "Action Board":
             })
             st.success("✅ Acción guardada.")
             st.session_state["show_form"] = False  # Ocultar el formulario después de guardar
-
-    st.write("---")
-
+            
 # Mostrar acciones guardadas (Pizarra)
 st.subheader("📋 Acciones Registradas")
 actions = db.collection("actions").where("usuario", "==", "Enrique").stream()
