@@ -97,24 +97,26 @@ elif choice == "Action Board":
             })
             st.success("✅ Acción guardada.")
             st.session_state["show_form"] = False  # Ocultar el formulario después de guardar
-            
-# Mostrar acciones guardadas (Pizarra)
-st.subheader("📋 Acciones Registradas")
-actions = db.collection("actions").where("usuario", "==", "Enrique").stream()
 
-for action in actions:
-    data = action.to_dict()
-    doc_id = action.id  # ID del documento para eliminarlo
+    st.write("---")
+
+    # Mostrar acciones guardadas (Pizarra)
+    st.subheader("📋 Acciones Registradas")
+    actions = db.collection("actions").where("usuario", "==", "Enrique").stream()
     
-    col1, col2 = st.columns([0.85, 0.15])
-    with col1:
-        st.markdown(f"**📌 {data['accion']}**\n\n🗓 {data['fecha']} - 🏷 {data['estado']}")
-    
-    with col2:
-        if st.button("🗑", key=doc_id):  # Botón para eliminar con clave única
-            db.collection("actions").document(doc_id).delete()
-            st.cache_data.clear()  # Limpia caché en lugar de experimental_rerun()
-            st.rerun()  # Recarga la interfaz
+    for action in actions:
+        data = action.to_dict()
+        doc_id = action.id  # ID del documento para eliminarlo
+        
+        col1, col2 = st.columns([0.85, 0.15])
+        with col1:
+            st.markdown(f"**📌 {data['accion']}**\n\n🗓 {data['fecha']} - 🏷 {data['estado']}")
+        
+        with col2:
+            if st.button("🗑", key=doc_id):  # Botón para eliminar con clave única
+                db.collection("actions").document(doc_id).delete()
+                st.experimental_rerun()
+
         st.write("---")
 
 # ---------- PESTAÑA 5: COMMUNICATIONS ----------
@@ -147,3 +149,4 @@ elif choice == "Calendar":
             "fecha": fecha_evento.strftime("%Y-%m-%d")
         })
         st.success("✅ Evento agendado.")
+
