@@ -76,38 +76,20 @@ elif choice == "Top 3":
 
 # ---------- PESTAÑA 4: ACTION BOARD ----------
 elif choice == "Action Board":
-    st.subheader("📝 Action Board")
+    st.subheader("✅ Acciones y Seguimiento")
 
-    # Botón para abrir formulario de agregar acción
-    if st.button("➕ Agregar Acción"):
-        st.session_state["show_form"] = not st.session_state.get("show_form", False)
+    accion = st.text_input("✍️ Describe la acción")
+    estado = st.selectbox("📌 Estado:", ["Pendiente", "En proceso", "Completado"])
 
-    # Formulario de acción (se muestra solo si se presiona el botón)
-    if st.session_state.get("show_form", False):
-        accion = st.text_input("✍️ Describe la acción")
-        estado = st.selectbox("📌 Estado:", ["Pendiente", "En proceso", "Completado"])
-
-        if st.button("✅ Guardar acción"):
-            doc_ref = db.collection("actions").document()
-            doc_ref.set({
-                "usuario": "Enrique",
-                "fecha": datetime.now().strftime("%Y-%m-%d"),
-                "accion": accion,
-                "estado": estado
-            })
-            st.success("✅ Acción guardada.")
-            st.session_state["show_form"] = False  # Ocultar el formulario después de guardar
-
-    st.write("---")
-
-    # Mostrar acciones guardadas (Pizarra)
-    st.subheader("📋 Acciones Registradas")
-    actions = db.collection("actions").where("usuario", "==", "Enrique").stream()
-    
-    for action in actions:
-        data = action.to_dict()
-        st.markdown(f"**📌 {data['accion']}**\n\n🗓 {data['fecha']} - 🏷 {data['estado']}")
-        st.write("---")
+    if st.button("✅ Guardar acción"):
+        doc_ref = db.collection("actions").document()
+        doc_ref.set({
+            "usuario": "Enrique",
+            "fecha": datetime.now().strftime("%Y-%m-%d"),
+            "accion": accion,
+            "estado": estado
+        })
+        st.success("✅ Acción guardada.")
 
 # ---------- PESTAÑA 5: COMMUNICATIONS ----------
 elif choice == "Communications":
