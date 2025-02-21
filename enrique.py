@@ -106,17 +106,7 @@ elif choice == "Action Board":
     
     for action in actions:
         data = action.to_dict()
-        doc_id = action.id  # ID del documento para eliminarlo
-        
-        col1, col2 = st.columns([0.85, 0.15])
-        with col1:
-            st.markdown(f"**📌 {data['accion']}**\n\n🗓 {data['fecha']} - 🏷 {data['estado']}")
-        
-        with col2:
-            if st.button("🗑", key=doc_id):  # Botón para eliminar con clave única
-                db.collection("actions").document(doc_id).delete()
-                st.experimental_rerun()
-
+        st.markdown(f"**📌 {data['accion']}**\n\n🗓 {data['fecha']} - 🏷 {data['estado']}")
         st.write("---")
 
 # ---------- PESTAÑA 5: COMMUNICATIONS ----------
@@ -149,4 +139,3 @@ elif choice == "Calendar":
             "fecha": fecha_evento.strftime("%Y-%m-%d")
         })
         st.success("✅ Evento agendado.")
-
