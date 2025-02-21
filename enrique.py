@@ -31,7 +31,6 @@ if choice == "Overview":
 elif choice == "Attendance":
     st.subheader("📝 Registro de Asistencia")
 
-    # Selección de estado de ánimo con stickers/emojis
     st.write("💡 ¿Cómo te sientes hoy?")
     feelings = {
         "😃": "Feliz",
@@ -43,10 +42,8 @@ elif choice == "Attendance":
     }
     selected_feeling = st.radio("Selecciona tu estado de ánimo:", list(feelings.keys()))
 
-    # Pregunta de salud
     health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
 
-    # Guardar en Firestore
     if st.button("✅ Registrar asistencia"):
         doc_ref = db.collection("attendance").document("Enrique")
         doc_ref.set({
@@ -78,53 +75,50 @@ elif choice == "Top 3":
 elif choice == "Action Board":
     st.subheader("📝 Action Board")
 
-    # Botón para abrir formulario de agregar acción
-    if st.button("➕ Agregar Acción"):
-        st.session_state["show_form"] = not st.session_state.get("show_form", False)
+    if "show_form" not in st.session_state:
+        st.session_state["show_form"] = False
 
-    # Formulario de acción (se muestra solo si se presiona el botón)
-    if st.session_state.get("show_form", False):
+    if st.button("➕ Agregar Acción"):
+        st.session_state["show_form"] = not st.session_state["show_form"]
+
+    if st.session_state["show_form"]:
         accion = st.text_input("✍️ Describe la acción")
         estado = st.selectbox("📌 Estado:", ["Pendiente", "En proceso", "Completado"])
 
         if st.button("✅ Guardar acción"):
-            doc_ref = db.collection("actions").document()
-            doc_ref.set({
+            db.collection("actions").add({
                 "usuario": "Enrique",
                 "fecha": datetime.now().strftime("%Y-%m-%d"),
                 "accion": accion,
                 "estado": estado
             })
             st.success("✅ Acción guardada.")
-            st.session_state["show_form"] = False  # Ocultar el formulario después de guardar
+            st.session_state["show_form"] = False
+            st.experimental_rerun()
 
-# Mostrar acciones guardadas (Pizarra)
-st.subheader("📋 Acciones Registradas")
-actions = db.collection("actions").where("usuario", "==", "Enrique").stream()
+    st.subheader("📋 Acciones Registradas")
+    actions = db.collection("actions").where("usuario", "==", "Enrique").stream()
 
-for action in actions:
-    data = action.to_dict()
-    doc_id = action.id  # ID del documento para eliminarlo
-
-    col1, col2 = st.columns([0.85, 0.15])
-    with col1:
-        st.markdown(f"**📌 {data['accion']}**\n\n🗓 {data['fecha']} - 🏷 {data['estado']}")
-
-    with col2:
-        if st.button("🗑", key=f"delete_{doc_id}"):  # Clave única para evitar duplicados
-            db.collection("actions").document(doc_id).delete()
-            st.session_state["deleted"] = True  # Guardar en el estado
-            st.experimental_rerun()  # Recargar la página
+    for action in actions:
+        data = action.to_dict()
+        doc_id = action.id
+        
+        col1, col2 = st.columns([0.85, 0.15])
+        with col1:
+            st.markdown(f"**📌 {data['accion']}**\n\n🗓 {data['fecha']} - 🏷 {data['estado']}")
+        with col2:
+            if st.button("🗑", key=f"delete_{doc_id}"):
+                db.collection("actions").document(doc_id).delete()
+                st.experimental_rerun()
 
 # ---------- PESTAÑA 5: COMMUNICATIONS ----------
 elif choice == "Communications":
     st.subheader("📢 Mensajes Importantes")
 
     mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
-    
+
     if st.button("📩 Enviar mensaje"):
-        doc_ref = db.collection("communications").document()
-        doc_ref.set({
+        db.collection("communications").add({
             "usuario": "Enrique",
             "fecha": datetime.now().strftime("%Y-%m-%d"),
             "mensaje": mensaje
@@ -139,8 +133,7 @@ elif choice == "Calendar":
     fecha_evento = st.date_input("📅 Selecciona la fecha")
 
     if st.button("✅ Agendar evento"):
-        doc_ref = db.collection("calendar").document()
-        doc_ref.set({
+        db.collection("calendar").add({
             "usuario": "Enrique",
             "evento": evento,
             "fecha": fecha_evento.strftime("%Y-%m-%d")
