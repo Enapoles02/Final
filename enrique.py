@@ -303,29 +303,42 @@ def show_main_app():
     
     # ---------------- Todas las Tareas (solo para TL) ----------------
     elif choice == "Todas las Tareas" and user_code == "ALECCION":
-        st.subheader("🗂️ Todas las Tareas")
-        st.write("Tareas de Top 3:")
-        tasks_top3 = list(db.collection("top3").stream())
-        if tasks_top3:
-            for task in tasks_top3:
-                task_data = task.to_dict()
-                st.markdown(f"**Top 3:** {task_data.get('descripcion','(Sin descripción)')}")
-                st.write(f"Inicio: {task_data.get('fecha_inicio','')} | Compromiso: {task_data.get('fecha_compromiso','')} | Real: {task_data.get('fecha_real','')}")
-                st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
-                st.markdown("---")
-        else:
-            st.info("No hay tareas de Top 3 registradas.")
-        st.write("Tareas de Action Board:")
-        tasks_actions = list(db.collection("actions").stream())
-        if tasks_actions:
-            for action in tasks_actions:
-                action_data = action.to_dict()
-                st.markdown(f"**Action Board:** {action_data.get('accion','(Sin descripción)')}")
-                st.write(f"Inicio: {action_data.get('fecha_inicio','')} | Compromiso: {action_data.get('fecha_compromiso','')} | Real: {action_data.get('fecha_real','')}")
-                st.markdown(f"**Usuario:** {action_data.get('usuario','')}")
-                st.markdown("---")
-        else:
-            st.info("No hay acciones registradas.")
+    st.subheader("🗂️ Todas las Tareas")
+    
+    st.markdown("### Tareas de Top 3")
+    tasks_top3 = list(db.collection("top3").stream())
+    if tasks_top3:
+        for task in tasks_top3:
+            task_data = task.to_dict()
+            st.markdown(f"**[TOP 3] {task_data.get('descripcion', '(Sin descripción)')}**")
+            st.write(f"Inicio: {task_data.get('fecha_inicio','')} | "
+                     f"Compromiso: {task_data.get('fecha_compromiso','')} | "
+                     f"Real: {task_data.get('fecha_real','')}")
+            st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
+            # Mostrar el status con color
+            status = task_data.get('status', '')
+            color = status_colors.get(status, "black")
+            st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
+            st.markdown("---")
+    else:
+        st.info("No hay tareas de Top 3 registradas.")
+    
+    st.markdown("### Tareas de Action Board")
+    tasks_actions = list(db.collection("actions").stream())
+    if tasks_actions:
+        for action in tasks_actions:
+            action_data = action.to_dict()
+            st.markdown(f"**[Action Board] {action_data.get('accion', '(Sin descripción)')}**")
+            st.write(f"Inicio: {action_data.get('fecha_inicio','')} | "
+                     f"Compromiso: {action_data.get('fecha_compromiso','')} | "
+                     f"Real: {action_data.get('fecha_real','')}")
+            st.markdown(f"**Usuario:** {action_data.get('usuario','')}")
+            status = action_data.get('status', '')
+            color = status_colors.get(status, "black")
+            st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
+            st.markdown("---")
+    else:
+        st.info("No hay acciones registradas.")
     
     # ---------------- Action Board ----------------
     elif choice == "Action Board":
