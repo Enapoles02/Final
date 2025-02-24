@@ -47,44 +47,50 @@ if st.session_state["user_code"] is None:
     st.stop()
 
 # ================================
-# App Principal
+# Función principal de la app
 # ================================
 def show_main_app():
     user_code = st.session_state["user_code"]
     st.title("🔥 Daily Huddle")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
-    # Temporizador
-    if "timer_started" not in st.session_state:
-        st.session_state.timer_started = False
-    if not st.session_state.timer_started:
-        if st.button("Start Timer"):
-            st.session_state.timer_started = True
-    if st.session_state.timer_started:
-        countdown_html = """
-        <div id="countdown" style="position: fixed; top: 10px; right: 10px; background-color: #f0f0f0; 
-             padding: 10px; border-radius: 5px; font-size: 18px; z-index:1000;">
-          30:00
-        </div>
-        <script>
-        var timeLeft = 30 * 60;
-        function updateTimer() {
-            var minutes = Math.floor(timeLeft / 60);
-            var seconds = timeLeft % 60;
-            if (seconds < 10) { seconds = "0" + seconds; }
-            document.getElementById("countdown").innerHTML = minutes + ":" + seconds;
-            if(timeLeft > 0) {
-                timeLeft--;
-            } else {
-                clearInterval(timerId);
+    # --- Botón Start Timer: Solo lo ve TL o Timekeeper ---
+    can_start_timer = False
+    if user_code == "ALECCION":
+        can_start_timer = True
+    elif "roles" in st.session_state and st.session_state["roles"].get("Timekeeper") == user_code:
+        can_start_timer = True
+    if can_start_timer:
+        if "timer_started" not in st.session_state:
+            st.session_state.timer_started = False
+        if not st.session_state.timer_started:
+            if st.button("Start Timer"):
+                st.session_state.timer_started = True
+        if st.session_state.timer_started:
+            countdown_html = """
+            <div id="countdown" style="position: fixed; top: 10px; right: 10px; background-color: #f0f0f0; 
+                 padding: 10px; border-radius: 5px; font-size: 18px; z-index:1000;">
+              30:00
+            </div>
+            <script>
+            var timeLeft = 30 * 60;
+            function updateTimer() {
+                var minutes = Math.floor(timeLeft / 60);
+                var seconds = timeLeft % 60;
+                if (seconds < 10) { seconds = "0" + seconds; }
+                document.getElementById("countdown").innerHTML = minutes + ":" + seconds;
+                if(timeLeft > 0) {
+                    timeLeft--;
+                } else {
+                    clearInterval(timerId);
+                }
             }
-        }
-        var timerId = setInterval(updateTimer, 1000);
-        </script>
-        """
-        components.html(countdown_html, height=70)
+            var timerId = setInterval(updateTimer, 1000);
+            </script>
+            """
+            components.html(countdown_html, height=70)
     
-    # Inicialización de Firebase
+    # --- Inicialización de Firebase ---
     firebase_config = st.secrets["firebase"]
     if not isinstance(firebase_config, dict):
         firebase_config = firebase_config.to_dict()
@@ -97,7 +103,7 @@ def show_main_app():
         return
     db = firestore.client()
     
-    # Función auxiliar para combinar status
+    # --- Función auxiliar para status ---
     def get_status(selected, custom):
         return custom.strip() if custom and custom.strip() != "" else selected
     status_colors = {
@@ -106,12 +112,12 @@ def show_main_app():
         "Completado": "green"
     }
     
-    # Menú principal
+    # --- Menú principal ---
     st.markdown("---")
     main_menu = ["Overview", "Attendance", "Recognition", "Escalations", "Top 3", "Action Board", "Todas las Tareas", "Communications", "Calendar", "Roles", "Compliance"]
-    # Para usuarios que no son TeamLead, ocultamos "Todas las Tareas", "Roles" y "Compliance"
+    # Para usuarios que no son TL, ocultamos "Todas las Tareas", "Roles" y "Compliance" (salvo si son Coach, veremos Compliance)
     if user_code != "ALECCION":
-        main_menu = [item for item in main_menu if item not in ["Todas las Tareas", "Roles", "Compliance"]]
+        main_menu = [item for item in main_menu if item not in ["Todas las Tareas", "Roles"]]
     choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", main_menu)
     
     # ---------------- Overview ----------------
@@ -206,7 +212,7 @@ def show_main_app():
     # ---------------- Top 3 ----------------
     elif choice == "Top 3":
         st.subheader("📌 Top 3 Prioridades - Resumen")
-        # Si es TeamLead, muestra todas; de lo contrario, solo las del usuario
+        # Si el usuario es TeamLead, muestra todas; de lo contrario, solo las propias.
         if user_code == "ALECCION":
             tasks = list(db.collection("top3").stream())
         else:
@@ -295,22 +301,31 @@ def show_main_app():
                 except Exception:
                     pass
     
-    # ---------------- Todas las Tareas (solo para TeamLead) ----------------
+    # ---------------- Todas las Tareas (solo para TL) ----------------
     elif choice == "Todas las Tareas" and user_code == "ALECCION":
-        st.subheader("🗂️ Todas las Tareas (Top 3 y Action Board)")
-        st.write("Visualiza las tareas de todos los usuarios:")
-        tasks = list(db.collection("top3").stream())
-        if tasks:
-            for task in tasks:
+        st.subheader("🗂️ Todas las Tareas")
+        st.write("Tareas de Top 3:")
+        tasks_top3 = list(db.collection("top3").stream())
+        if tasks_top3:
+            for task in tasks_top3:
                 task_data = task.to_dict()
-                st.markdown(f"**{task_data.get('descripcion','(Sin descripción)')}**")
-                st.write(f"Inicio: {task_data.get('fecha_inicio','')} | "
-                         f"Compromiso: {task_data.get('fecha_compromiso','')} | "
-                         f"Real: {task_data.get('fecha_real','')}")
+                st.markdown(f"**Top 3:** {task_data.get('descripcion','(Sin descripción)')}")
+                st.write(f"Inicio: {task_data.get('fecha_inicio','')} | Compromiso: {task_data.get('fecha_compromiso','')} | Real: {task_data.get('fecha_real','')}")
                 st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
                 st.markdown("---")
         else:
-            st.info("No hay tareas registradas.")
+            st.info("No hay tareas de Top 3 registradas.")
+        st.write("Tareas de Action Board:")
+        tasks_actions = list(db.collection("actions").stream())
+        if tasks_actions:
+            for action in tasks_actions:
+                action_data = action.to_dict()
+                st.markdown(f"**Action Board:** {action_data.get('accion','(Sin descripción)')}")
+                st.write(f"Inicio: {action_data.get('fecha_inicio','')} | Compromiso: {action_data.get('fecha_compromiso','')} | Real: {action_data.get('fecha_real','')}")
+                st.markdown(f"**Usuario:** {action_data.get('usuario','')}")
+                st.markdown("---")
+        else:
+            st.info("No hay acciones registradas.")
     
     # ---------------- Action Board ----------------
     elif choice == "Action Board":
@@ -329,9 +344,7 @@ def show_main_app():
                         action_id = action.id
                         act_data = action.to_dict()
                         st.markdown(f"**{act_data.get('accion','(Sin descripción)')}**")
-                        st.write(f"Inicio: {act_data.get('fecha_inicio','')} | "
-                                 f"Compromiso: {act_data.get('fecha_compromiso','')} | "
-                                 f"Real: {act_data.get('fecha_real','')}")
+                        st.write(f"Inicio: {act_data.get('fecha_inicio','')} | Compromiso: {act_data.get('fecha_compromiso','')} | Real: {act_data.get('fecha_real','')}")
                         if user_code == "ALECCION":
                             st.markdown(f"**Usuario:** {act_data.get('usuario','')}")
                         status_val = act_data.get('status', '')
@@ -440,7 +453,6 @@ def show_main_app():
             events = []
             for doc in events_docs:
                 data = doc.to_dict()
-                # Mostrar eventos públicos a todos; privados solo al usuario creador.
                 if data.get("publico", False) or data.get("usuario", "") == user_code:
                     title = data.get("evento", "Evento")
                     if not data.get("publico", False):
@@ -491,19 +503,18 @@ def show_main_app():
             st.subheader("📝 Asignación de Roles Semanal")
             st.write("Pulsa el botón para asignar roles de ActionTaker, Coach y Timekeeper de forma aleatoria.")
             if st.button("Asignar Roles"):
-                # Se asignan aleatoriamente roles entre los usuarios (excluyendo al TeamLead)
                 usuarios = [code for code in valid_users if code != "ALECCION"]
                 roles = ["ActionTaker", "Coach", "Timekeeper"]
                 asignacion = { rol: random.choice(usuarios) for rol in roles }
                 st.write("Roles asignados:")
                 st.json(asignacion)
-                # Se podría almacenar esta asignación en Firestore si se desea.
+                st.session_state["roles"] = asignacion
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para el TeamLead.")
     
-    # ---------------- Compliance (Feedback) ----------------
+    # ---------------- Compliance (solo para Coach o TL) ----------------
     elif choice == "Compliance":
-        if user_code == "ALECCION":
+        if user_code == "ALECCION" or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
             st.subheader("📝 Compliance - Feedback")
             st.write("Selecciona a quién deseas dar feedback y escribe tu comentario.")
             feedback_options = [code for code in valid_users if code != user_code]
@@ -518,88 +529,8 @@ def show_main_app():
                 })
                 st.success("Feedback enviado.")
         else:
-            st.error("Acceso denegado. Esta opción es exclusiva para el TeamLead.")
+            st.error("Acceso denegado. Esta opción es exclusiva para el Coach o el TeamLead.")
     
-    # ---------------- Communications ----------------
-    elif choice == "Communications":
-        st.subheader("📢 Mensajes Importantes")
-        mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
-        if st.button("📩 Enviar mensaje"):
-            db.collection("communications").document().set({
-                "usuario": user_code,
-                "fecha": datetime.now().strftime("%Y-%m-%d"),
-                "mensaje": mensaje
-            })
-            st.success("Mensaje enviado.")
-    
-    # ---------------- Calendar ----------------
-    elif choice == "Calendar":
-        st.subheader("📅 Calendario")
-        cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
-        if cal_option == "Crear Evento":
-            st.markdown("### Crear Evento")
-            evento = st.text_input("📌 Nombre del evento")
-            fecha_evento = st.date_input("📅 Selecciona la fecha")
-            tipo_evento = st.radio("Tipo de evento", ["Público", "Privado"])
-            if st.button("✅ Agendar evento"):
-                event_data = {
-                    "usuario": user_code,
-                    "evento": evento,
-                    "fecha": fecha_evento.strftime("%Y-%m-%d")
-                }
-                event_data["publico"] = True if tipo_evento == "Público" else False
-                db.collection("calendar").document().set(event_data)
-                st.success("Evento agendado.")
-        else:
-            events_ref = db.collection("calendar")
-            events_docs = events_ref.stream()
-            events = []
-            for doc in events_docs:
-                data = doc.to_dict()
-                if data.get("publico", False) or data.get("usuario", "") == user_code:
-                    title = data.get("evento", "Evento")
-                    if not data.get("publico", False):
-                        title += f" (Privado - {data.get('usuario','')})"
-                    events.append({
-                        "title": title,
-                        "start": data.get("fecha")
-                    })
-            events_json = json.dumps(events)
-            calendar_html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset='utf-8' />
-              <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
-              <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
-              <style>
-                body {{
-                  margin: 0;
-                  padding: 0;
-                }}
-                #calendar {{
-                  max-width: 900px;
-                  margin: 40px auto;
-                }}
-              </style>
-            </head>
-            <body>
-              <div id='calendar'></div>
-              <script>
-                document.addEventListener('DOMContentLoaded', function() {{
-                  var calendarEl = document.getElementById('calendar');
-                  var calendar = new FullCalendar.Calendar(calendarEl, {{
-                    initialView: 'dayGridMonth',
-                    events: {events_json}
-                  }});
-                  calendar.render();
-                }});
-              </script>
-            </body>
-            </html>
-            """
-            components.html(calendar_html, height=600, scrolling=True)
-
 # ================================
 # Ejecutar la app principal
 # ================================
