@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 import json
 
 # ================================
-# Lista de usuarios válidos:
+# Lista de usuarios válidos
 # ================================
 valid_users = {
     "VREYES": "Reyes Escorsia Victor Manuel",
@@ -34,18 +34,21 @@ if st.session_state.user_code is None:
         if user_input in valid_users:
             st.session_state.user_code = user_input
             st.success(f"¡Bienvenido, {valid_users[user_input]}!")
-            st.experimental_rerun()  # Recarga la app una vez logueado
+            try:
+                st.experimental_rerun()  # Intentamos recargar la app
+            except Exception:
+                pass
         else:
             st.error("Código de usuario inválido. Intenta nuevamente.")
     st.stop()
 
 # ================================
-# Si se ha autenticado el usuario, continuar con la app
+# Usuario autenticado
 # ================================
-user_code = st.session_state.user_code  # Código del usuario autenticado
+user_code = st.session_state.user_code
 
 # -------------------------------------------------------------------
-# Encabezado: Título de la app (se muestra el nombre completo del usuario)
+# Encabezado: Título y nombre del usuario autenticado
 # -------------------------------------------------------------------
 st.title("🔥 Daily Huddle")
 st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
@@ -62,7 +65,8 @@ if not st.session_state.timer_started:
 
 if st.session_state.timer_started:
     countdown_html = """
-    <div id="countdown" style="position: fixed; top: 10px; right: 10px; background-color: #f0f0f0; padding: 10px; border-radius: 5px; font-size: 18px; z-index:1000;">
+    <div id="countdown" style="position: fixed; top: 10px; right: 10px; background-color: #f0f0f0; 
+         padding: 10px; border-radius: 5px; font-size: 18px; z-index:1000;">
       30:00
     </div>
     <script>
@@ -100,11 +104,12 @@ except Exception as e:
 
 db = firestore.client()
 
-# Función para combinar status y status personalizado
+# -------------------------------------------------------------------
+# Funciones y utilidades
+# -------------------------------------------------------------------
 def get_status(selected, custom):
     return custom.strip() if custom and custom.strip() != "" else selected
 
-# Diccionario para colores de status
 status_colors = {
     "Pendiente": "red",
     "En proceso": "orange",
