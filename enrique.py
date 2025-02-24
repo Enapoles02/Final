@@ -200,9 +200,8 @@ elif choice == "Top 3":
                     task_id = task.id
                     task_data = task.to_dict()
                     st.markdown(f"**{task_data.get('descripcion','(Sin descripción)')}**")
-                    st.write(f"Inicio: {task_data.get('fecha_inicio','')} | "
-                             f"Compromiso: {task_data.get('fecha_compromiso','')} | "
-                             f"Real: {task_data.get('fecha_real','')}")
+                    st.write(f"Inicio: {task_data.get('fecha_inicio','')} | Compromiso: {task_data.get('fecha_compromiso','')} | Real: {task_data.get('fecha_real','')}")
+                    
                     status_val = task_data.get('status', '')
                     color = status_colors.get(status_val, "black")
                     st.markdown(f"**Status actual:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
@@ -227,13 +226,18 @@ elif choice == "Top 3":
                             "fecha_real": fecha_real
                         })
                         st.success("Status actualizado.")
-                        load_top3()
+                        try:
+                            load_top3()
+                        except Exception:
+                            pass
                     
                     if st.button("🗑️ Eliminar", key=f"delete_top3_{task_id}"):
                         db.collection("top3").document(task_id).delete()
                         st.success("Tarea eliminada.")
-                        load_top3()
-                    
+                        try:
+                            load_top3()
+                        except Exception:
+                            pass
                     st.markdown("---")
             else:
                 st.info("No hay tareas de Top 3 registradas.")
@@ -265,7 +269,10 @@ elif choice == "Top 3":
             db.collection("top3").add(data)
             st.success("Tarea de Top 3 guardada.")
             st.session_state.show_top3_form = False
-            load_top3()
+            try:
+                load_top3()
+            except Exception:
+                pass
 
 # ----------------
 # Action Board: Acciones y seguimiento (con edición de status)
@@ -283,9 +290,7 @@ elif choice == "Action Board":
                     action_id = action.id
                     act_data = action.to_dict()
                     st.markdown(f"**{act_data.get('accion','(Sin descripción)')}**")
-                    st.write(f"Inicio: {act_data.get('fecha_inicio','')} | "
-                             f"Compromiso: {act_data.get('fecha_compromiso','')} | "
-                             f"Real: {act_data.get('fecha_real','')}")
+                    st.write(f"Inicio: {act_data.get('fecha_inicio','')} | Compromiso: {act_data.get('fecha_compromiso','')} | Real: {act_data.get('fecha_real','')}")
                     
                     status_val = act_data.get('status', '')
                     color = status_colors.get(status_val, "black")
@@ -311,17 +316,25 @@ elif choice == "Action Board":
                             "fecha_real": fecha_real
                         })
                         st.success("Status actualizado.")
-                        load_actions()
+                        try:
+                            load_actions()
+                        except Exception:
+                            pass
                     
                     if st.button("🗑️ Eliminar", key=f"delete_action_{action_id}"):
                         db.collection("actions").document(action_id).delete()
                         st.success("Acción eliminada.")
-                        load_actions()
-                    
+                        try:
+                            load_actions()
+                        except Exception:
+                            pass
                     st.markdown("---")
             else:
                 st.info("No hay acciones registradas.")
-    load_actions()
+    try:
+        load_actions()
+    except Exception:
+        pass
     
     if st.button("➕ Agregar Acción"):
         st.session_state.show_action_form = True
@@ -349,7 +362,10 @@ elif choice == "Action Board":
             db.collection("actions").add(data)
             st.success("Acción guardada.")
             st.session_state.show_action_form = False
-            load_actions()
+            try:
+                load_actions()
+            except Exception:
+                pass
 
 # ----------------
 # Communications
