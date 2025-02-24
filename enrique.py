@@ -2,13 +2,14 @@ import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Convertir el AttrDict a un dict normal
+# Convertir el AttrDict a dict normal si es necesario
 firebase_config = st.secrets["firebase"]
 if not isinstance(firebase_config, dict):
     firebase_config = firebase_config.to_dict()
 
-st.write("Tipo de firebase_config:", type(firebase_config))
-st.write("Contenido de firebase_config:", firebase_config)
+# (Opcional) Puedes desactivar los mensajes de depuración:
+# st.write("Tipo de firebase_config:", type(firebase_config))
+# st.write("Contenido de firebase_config:", firebase_config)
 
 # Inicializar Firebase
 try:
@@ -20,7 +21,7 @@ except Exception as e:
     st.error("Error al inicializar Firebase: " + str(e))
     raise
 
-# Crear cliente de Firestore
+# Crear el cliente de Firestore
 db = firestore.client()
 
 # Resto de la aplicación
