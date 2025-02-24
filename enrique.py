@@ -36,7 +36,7 @@ def show_login():
             st.session_state.user_code = user_input
             st.success(f"¡Bienvenido, {valid_users[user_input]}!")
             try:
-                st.experimental_rerun()
+                st.experimental_rerun()  # Intentamos recargar la app
             except Exception:
                 pass
         else:
@@ -47,14 +47,14 @@ if st.session_state["user_code"] is None:
     st.stop()
 
 # ================================
-# Función principal de la app
+# App Principal
 # ================================
 def show_main_app():
     user_code = st.session_state["user_code"]
     st.title("🔥 Daily Huddle")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
-    # --- Botón Start Timer: Solo lo ve TL o Timekeeper ---
+    # --- Botón Start Timer: Solo lo ve el TeamLead o quien tenga asignado el rol Timekeeper ---
     can_start_timer = False
     if user_code == "ALECCION":
         can_start_timer = True
@@ -103,7 +103,7 @@ def show_main_app():
         return
     db = firestore.client()
     
-    # --- Función auxiliar para status ---
+    # --- Funciones auxiliares ---
     def get_status(selected, custom):
         return custom.strip() if custom and custom.strip() != "" else selected
     status_colors = {
@@ -115,21 +115,21 @@ def show_main_app():
     # --- Menú principal ---
     st.markdown("---")
     main_menu = ["Overview", "Attendance", "Recognition", "Escalations", "Top 3", "Action Board", "Todas las Tareas", "Communications", "Calendar", "Roles", "Compliance"]
-    # Para usuarios que no son TL, ocultamos "Todas las Tareas", "Roles" y "Compliance" (salvo si son Coach, veremos Compliance)
+    # Para usuarios que no son TeamLead, ocultamos "Todas las Tareas", "Roles" y "Compliance" (salvo si es Coach, ver Compliance)
     if user_code != "ALECCION":
-        main_menu = [item for item in main_menu if item not in ["Todas las Tareas", "Roles"]]
+        main_menu = [item for item in main_menu if item not in ["Todas las Tareas", "Roles", "Compliance"]]
     choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", main_menu)
     
-    # ---------------- Overview ----------------
+    # ------------- Overview -------------
     if choice == "Overview":
         st.subheader("📋 ¿Qué es el Daily Huddle?")
         st.write("""
         Bienvenido a tu Daily Huddle. Aquí podrás registrar tu asistencia, tareas, reconocimientos, escalaciones, 
-        y eventos, además de roles semanales y feedback de compliance.
+        eventos y roles semanales, además de dar feedback de compliance.
         \n👈 Usa la barra lateral para navegar.
         """)
     
-    # ---------------- Attendance ----------------
+    # ------------- Attendance -------------
     elif choice == "Attendance":
         st.subheader("📝 Registro de Asistencia")
         today_date = datetime.now().strftime("%Y-%m-%d")
@@ -169,7 +169,7 @@ def show_main_app():
             })
             st.success("Asistencia registrada correctamente.")
     
-    # ---------------- Recognition ----------------
+    # ------------- Recognition -------------
     elif choice == "Recognition":
         st.subheader("🎉 Recognition")
         st.write("Envía un reconocimiento a un compañero.")
@@ -188,7 +188,7 @@ def show_main_app():
             })
             st.success("Reconocimiento enviado.")
     
-    # ---------------- Escalations ----------------
+    # ------------- Escalations -------------
     elif choice == "Escalations":
         st.subheader("⚠️ Escalations")
         st.write("Registra una escalación con la información requerida.")
@@ -209,10 +209,9 @@ def show_main_app():
             })
             st.success("Escalación registrada.")
     
-    # ---------------- Top 3 ----------------
+    # ------------- Top 3 -------------
     elif choice == "Top 3":
         st.subheader("📌 Top 3 Prioridades - Resumen")
-        # Si el usuario es TeamLead, muestra todas; de lo contrario, solo las propias.
         if user_code == "ALECCION":
             tasks = list(db.collection("top3").stream())
         else:
@@ -227,13 +226,13 @@ def show_main_app():
                     for task in tasks:
                         task_id = task.id
                         task_data = task.to_dict()
-                        st.markdown(f"**{task_data.get('descripcion','(Sin descripción)')}**")
+                        st.markdown(f"**[TOP 3] {task_data.get('descripcion','(Sin descripción)')}**")
                         st.write(f"Inicio: {task_data.get('fecha_inicio','')} | Compromiso: {task_data.get('fecha_compromiso','')} | Real: {task_data.get('fecha_real','')}")
                         if user_code == "ALECCION":
                             st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
                         status_val = task_data.get('status', '')
                         color = status_colors.get(status_val, "black")
-                        st.markdown(f"**Status actual:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
+                        st.markdown(f"**Status:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
                         new_status = st.selectbox(
                             "Editar status",
                             ["Pendiente", "En proceso", "Completado"],
@@ -301,46 +300,39 @@ def show_main_app():
                 except Exception:
                     pass
     
-    # ---------------- Todas las Tareas (solo para TL) ----------------
+    # ------------- Todas las Tareas (solo para TL) -------------
     elif choice == "Todas las Tareas" and user_code == "ALECCION":
-    st.subheader("🗂️ Todas las Tareas")
+        st.subheader("🗂️ Todas las Tareas")
+        st.markdown("### Tareas de Top 3")
+        tasks_top3 = list(db.collection("top3").stream())
+        if tasks_top3:
+            for task in tasks_top3:
+                task_data = task.to_dict()
+                st.markdown(f"**[TOP 3] {task_data.get('descripcion','(Sin descripción)')}**")
+                st.write(f"Inicio: {task_data.get('fecha_inicio','')} | Compromiso: {task_data.get('fecha_compromiso','')} | Real: {task_data.get('fecha_real','')}")
+                st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
+                status = task_data.get('status', '')
+                color = status_colors.get(status, "black")
+                st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
+                st.markdown("---")
+        else:
+            st.info("No hay tareas de Top 3 registradas.")
+        st.markdown("### Tareas de Action Board")
+        tasks_actions = list(db.collection("actions").stream())
+        if tasks_actions:
+            for action in tasks_actions:
+                action_data = action.to_dict()
+                st.markdown(f"**[Action Board] {action_data.get('accion','(Sin descripción)')}**")
+                st.write(f"Inicio: {action_data.get('fecha_inicio','')} | Compromiso: {action_data.get('fecha_compromiso','')} | Real: {action_data.get('fecha_real','')}")
+                st.markdown(f"**Usuario:** {action_data.get('usuario','')}")
+                status = action_data.get('status', '')
+                color = status_colors.get(status, "black")
+                st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
+                st.markdown("---")
+        else:
+            st.info("No hay acciones registradas.")
     
-    st.markdown("### Tareas de Top 3")
-    tasks_top3 = list(db.collection("top3").stream())
-    if tasks_top3:
-        for task in tasks_top3:
-            task_data = task.to_dict()
-            st.markdown(f"**[TOP 3] {task_data.get('descripcion', '(Sin descripción)')}**")
-            st.write(f"Inicio: {task_data.get('fecha_inicio','')} | "
-                     f"Compromiso: {task_data.get('fecha_compromiso','')} | "
-                     f"Real: {task_data.get('fecha_real','')}")
-            st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
-            # Mostrar el status con color
-            status = task_data.get('status', '')
-            color = status_colors.get(status, "black")
-            st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
-            st.markdown("---")
-    else:
-        st.info("No hay tareas de Top 3 registradas.")
-    
-    st.markdown("### Tareas de Action Board")
-    tasks_actions = list(db.collection("actions").stream())
-    if tasks_actions:
-        for action in tasks_actions:
-            action_data = action.to_dict()
-            st.markdown(f"**[Action Board] {action_data.get('accion', '(Sin descripción)')}**")
-            st.write(f"Inicio: {action_data.get('fecha_inicio','')} | "
-                     f"Compromiso: {action_data.get('fecha_compromiso','')} | "
-                     f"Real: {action_data.get('fecha_real','')}")
-            st.markdown(f"**Usuario:** {action_data.get('usuario','')}")
-            status = action_data.get('status', '')
-            color = status_colors.get(status, "black")
-            st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
-            st.markdown("---")
-    else:
-        st.info("No hay acciones registradas.")
-    
-    # ---------------- Action Board ----------------
+    # ------------- Action Board -------------
     elif choice == "Action Board":
         st.subheader("✅ Acciones y Seguimiento - Resumen")
         action_container = st.empty()
@@ -362,7 +354,7 @@ def show_main_app():
                             st.markdown(f"**Usuario:** {act_data.get('usuario','')}")
                         status_val = act_data.get('status', '')
                         color = status_colors.get(status_val, "black")
-                        st.markdown(f"**Status actual:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
+                        st.markdown(f"**Status:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
                         new_status = st.selectbox(
                             "Editar status",
                             ["Pendiente", "En proceso", "Completado"],
@@ -430,7 +422,7 @@ def show_main_app():
                 except Exception:
                     pass
     
-    # ---------------- Communications ----------------
+    # ------------- Communications -------------
     elif choice == "Communications":
         st.subheader("📢 Mensajes Importantes")
         mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
@@ -442,7 +434,7 @@ def show_main_app():
             })
             st.success("Mensaje enviado.")
     
-    # ---------------- Calendar ----------------
+    # ------------- Calendar -------------
     elif choice == "Calendar":
         st.subheader("📅 Calendario")
         cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
@@ -510,12 +502,13 @@ def show_main_app():
             """
             components.html(calendar_html, height=600, scrolling=True)
     
-    # ---------------- Roles (solo para TeamLead) ----------------
+    # ------------- Roles (solo para TeamLead) -------------
     elif choice == "Roles":
         if user_code == "ALECCION":
             st.subheader("📝 Asignación de Roles Semanal")
             st.write("Pulsa el botón para asignar roles de ActionTaker, Coach y Timekeeper de forma aleatoria.")
             if st.button("Asignar Roles"):
+                # Se asignan aleatoriamente roles entre los usuarios (excluyendo al TeamLead)
                 usuarios = [code for code in valid_users if code != "ALECCION"]
                 roles = ["ActionTaker", "Coach", "Timekeeper"]
                 asignacion = { rol: random.choice(usuarios) for rol in roles }
@@ -525,8 +518,9 @@ def show_main_app():
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para el TeamLead.")
     
-    # ---------------- Compliance (solo para Coach o TL) ----------------
+    # ------------- Compliance (Feedback) -------------
     elif choice == "Compliance":
+        # Se muestra para el TeamLead o el Coach asignado
         if user_code == "ALECCION" or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
             st.subheader("📝 Compliance - Feedback")
             st.write("Selecciona a quién deseas dar feedback y escribe tu comentario.")
