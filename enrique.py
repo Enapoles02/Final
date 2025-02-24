@@ -3,10 +3,11 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime
 import streamlit.components.v1 as components
+import json
 
-# --------------------------------------------------
-# Botón para iniciar el temporizador de 30 minutos
-# --------------------------------------------------
+# -------------------------------------------------------------------
+# Temporizador: No se inicia hasta que el usuario presione "Start Timer"
+# -------------------------------------------------------------------
 if "timer_started" not in st.session_state:
     st.session_state.timer_started = False
 
@@ -14,7 +15,6 @@ if not st.session_state.timer_started:
     if st.button("Start Timer"):
         st.session_state.timer_started = True
 
-# Si el timer ya inició, se inyecta el código HTML/JS para mostrarlo en la esquina superior derecha
 if st.session_state.timer_started:
     countdown_html = """
     <div id="countdown" style="position: fixed; top: 10px; right: 10px; background-color: #f0f0f0; padding: 10px; border-radius: 5px; font-size: 18px; z-index:1000;">
@@ -38,9 +38,9 @@ if st.session_state.timer_started:
     """
     components.html(countdown_html, height=70)
 
-# --------------------------------------------------
+# -------------------------------------------------------------------
 # Inicialización de Firebase
-# --------------------------------------------------
+# -------------------------------------------------------------------
 firebase_config = st.secrets["firebase"]
 if not isinstance(firebase_config, dict):
     firebase_config = firebase_config.to_dict()
@@ -55,9 +55,9 @@ except Exception as e:
 
 db = firestore.client()
 
-# --------------------------------------------------
+# -------------------------------------------------------------------
 # Interfaz de la aplicación
-# --------------------------------------------------
+# -------------------------------------------------------------------
 st.title("🔥 Daily Huddle - Enrique 🔥")
 menu = ["Overview", "Attendance", "Top 3", "Action Board", "Communications", "Calendar"]
 choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu)
@@ -121,7 +121,7 @@ elif choice == "Top 3":
         submit_top3 = st.form_submit_button("Guardar prioridades")
     
     if submit_top3:
-        # Para cada prioridad, si el status es 'Completado', asignamos la fecha real actual; de lo contrario, dejamos vacío.
+        # Para cada prioridad, si el status es 'Completado', asignamos la fecha real actual; de lo contrario, se deja vacío.
         prioridades = []
         for desc, ti, tc, s in [(p1, ti1, tc1, s1), (p2, ti2, tc2, s2), (p3, ti3, tc3, s3)]:
             fecha_real = datetime.now().strftime("%Y-%m-%d") if s == "Completado" else ""
@@ -177,14 +177,65 @@ elif choice == "Communications":
         st.success("Mensaje enviado.")
 
 elif choice == "Calendar":
-    st.subheader("📅 Eventos y Fechas Clave")
-    evento = st.text_input("📌 Nombre del evento")
-    fecha_evento = st.date_input("📅 Selecciona la fecha")
-    if st.button("✅ Agendar evento"):
-        doc_ref = db.collection("calendar").document()
-        doc_ref.set({
-            "usuario": "Enrique",
-            "evento": evento,
-            "fecha": fecha_evento.strftime("%Y-%m-%d")
-        })
-        st.success("Evento agendado.")
+    st.subheader("📅 Calendario")
+    cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
+    
+    if cal_option == "Crear Evento":
+        evento = st.text_input("📌 Nombre del evento")
+        fecha_evento = st.date_input("📅 Selecciona la fecha")
+        if st.button("✅ Agendar evento"):
+            doc_ref = db.collection("calendar").document()
+            doc_ref.set({
+                "usuario": "Enrique",
+                "evento": evento,
+                "fecha": fecha_evento.strftime("%Y-%m-%d")
+            })
+            st.success("Evento agendado.")
+    
+    else:  # Ver Calendario
+        # Recuperar eventos de Firestore
+        events_ref = db.collection("calendar")
+        events_docs = events_ref.stream()
+        events = []
+        for doc in events_docs:
+            data = doc.to_dict()
+            events.append({
+                "title": data.get("evento", "Evento"),
+                "start": data.get("fecha")  # Se asume formato YYYY-MM-DD
+            })
+        events_json = json.dumps(events)
+        
+        calendar_html = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+          <meta charset='utf-8' />
+          <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+          <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+          <style>
+            body {{
+              margin: 0;
+              padding: 0;
+            }}
+            #calendar {{
+              max-width: 900px;
+              margin: 40px auto;
+            }}
+          </style>
+        </head>
+        <body>
+          <div id='calendar'></div>
+          <script>
+            document.addEventListener('DOMContentLoaded', function() {{
+              var calendarEl = document.getElementById('calendar');
+              var calendar = new FullCalendar.Calendar(calendarEl, {{
+                initialView: 'dayGridMonth',
+                events: {events_json}
+              }});
+              calendar.render();
+            }});
+          </script>
+        </body>
+        </html>
+        """
+        components.html(calendar_html, height=600, scrolling=True)
