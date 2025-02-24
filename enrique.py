@@ -7,17 +7,35 @@ import json
 import base64
 
 # -------------------------------------------------------------------
-# Encabezado: Título y foto de perfil en dos columnas (imagen pequeña)
+# Encabezado: Título y uploader de foto de perfil (con estilos dinámicos)
 # -------------------------------------------------------------------
 col_title, col_profile = st.columns([3, 1])
 with col_title:
     st.title("🔥 Daily Huddle - Enrique")
 with col_profile:
-    st.write("Sube tu foto de perfil:")
-    profile_photo = st.file_uploader("Foto de perfil", type=["png", "jpg", "jpeg"], key="profile_photo")
+    # Se inyecta CSS para que el file uploader tenga ancho 80px inicialmente.
+    st.markdown(
+        """
+        <style>
+        div[data-baseweb="fileUploader"] {
+            width: 80px !important;
+        }
+        </style>
+        """, unsafe_allow_html=True)
+    # Usamos label_visibility="hidden" para que no se muestre texto.
+    profile_photo = st.file_uploader("", type=["png", "jpg", "jpeg"], key="profile_photo", label_visibility="hidden")
     if profile_photo:
-        # Se muestra la imagen con un ancho fijo para una vista previa más pequeña y estética
-        st.image(profile_photo, caption="Vista previa", width=150)
+        # Una vez cargada la imagen, se inyecta CSS para reducir el ancho del uploader a 10px.
+        st.markdown(
+            """
+            <style>
+            div[data-baseweb="fileUploader"] {
+                width: 10px !important;
+            }
+            </style>
+            """, unsafe_allow_html=True)
+        # Se muestra la imagen en tamaño pequeño (ancho 80px)
+        st.image(profile_photo, width=80)
         profile_photo_bytes = profile_photo.read()
         profile_photo_base64 = base64.b64encode(profile_photo_bytes).decode('utf-8')
     else:
@@ -394,4 +412,3 @@ elif choice == "Calendar":
         </html>
         """
         components.html(calendar_html, height=600, scrolling=True)
-
