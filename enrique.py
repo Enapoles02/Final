@@ -7,7 +7,7 @@ import json
 import base64
 
 # -------------------------------------------------------------------
-# Encabezado: Título y foto de perfil a la par
+# Encabezado: Título y foto de perfil en dos columnas (imagen pequeña)
 # -------------------------------------------------------------------
 col_title, col_profile = st.columns([3, 1])
 with col_title:
@@ -16,7 +16,8 @@ with col_profile:
     st.write("Sube tu foto de perfil:")
     profile_photo = st.file_uploader("Foto de perfil", type=["png", "jpg", "jpeg"], key="profile_photo")
     if profile_photo:
-        st.image(profile_photo, caption="Vista previa", use_column_width=True)
+        # Se muestra la imagen con un ancho fijo para una vista previa más pequeña y estética
+        st.image(profile_photo, caption="Vista previa", width=150)
         profile_photo_bytes = profile_photo.read()
         profile_photo_base64 = base64.b64encode(profile_photo_bytes).decode('utf-8')
     else:
@@ -101,12 +102,12 @@ if choice == "Overview":
     """)
 
 # ----------------
-# Attendance: Registro de asistencia con pila dinámica y reutilización de la foto de perfil
+# Attendance: Registro de asistencia con pila dinámica y foto de perfil
 # ----------------
 elif choice == "Attendance":
     st.subheader("📝 Registro de Asistencia")
     
-    # Verificar y limpiar asistencia de días anteriores
+    # Se verifica que la asistencia sea del día actual
     today_date = datetime.now().strftime("%Y-%m-%d")
     attendance_doc = db.collection("attendance").document("Enrique").get()
     if attendance_doc.exists:
@@ -151,7 +152,7 @@ elif choice == "Attendance":
              "estado_animo": feelings[selected_feeling],
              "problema_salud": health_problem,
              "energia": energy_level,
-             "foto": profile_photo_base64  # Se usa la foto del encabezado
+             "foto": profile_photo_base64  # Se utiliza la foto subida en el encabezado
          })
          st.success("Asistencia registrada correctamente.")
 
@@ -393,3 +394,4 @@ elif choice == "Calendar":
         </html>
         """
         components.html(calendar_html, height=600, scrolling=True)
+
