@@ -7,16 +7,11 @@ firebase_config = st.secrets["firebase"]
 if not isinstance(firebase_config, dict):
     firebase_config = firebase_config.to_dict()
 
-# (Opcional) Puedes desactivar los mensajes de depuración:
-# st.write("Tipo de firebase_config:", type(firebase_config))
-# st.write("Contenido de firebase_config:", firebase_config)
-
-# Inicializar Firebase
+# Inicializar Firebase (sin mensajes de éxito para el usuario)
 try:
     cred = credentials.Certificate(firebase_config)
     if not firebase_admin._apps:
         firebase_admin.initialize_app(cred)
-    st.success("Firebase inicializado correctamente.")
 except Exception as e:
     st.error("Error al inicializar Firebase: " + str(e))
     raise
@@ -35,4 +30,3 @@ if choice == "Overview":
     Bienvenido a tu Daily Huddle. Aquí podrás registrar tu asistencia, prioridades, acciones pendientes y eventos importantes del equipo.
     \n👈 Usa la barra lateral para navegar entre las diferentes secciones.
     """)
-    st.success("✅ Firebase se conectó correctamente.")
