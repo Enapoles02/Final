@@ -4,6 +4,7 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 import streamlit.components.v1 as components
 import json
+import base64
 
 # -------------------------------------------------------------------
 # Temporizador: Se inicia solo al presionar "Start Timer"
@@ -84,7 +85,7 @@ if choice == "Overview":
     """)
 
 # ----------------
-# Attendance: Agregamos rating de energía tipo rating (estrellas)
+# Attendance: Registro de asistencia con "pila" de energía y opción para subir foto
 # ----------------
 elif choice == "Attendance":
     st.subheader("📝 Registro de Asistencia")
@@ -99,17 +100,41 @@ elif choice == "Attendance":
     }
     selected_feeling = st.radio("Selecciona tu estado de ánimo:", list(feelings.keys()))
     health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
-    # Agregamos rating de energía (estrellas)
-    energy = st.radio("Nivel de energía:", options=["⭐", "⭐⭐", "⭐⭐⭐", "⭐⭐⭐⭐", "⭐⭐⭐⭐⭐"], horizontal=True)
+    
+    st.write("Nivel de energía:")
+    # Mostrar una "pila" visual con 5 niveles
+    battery_html = """
+    <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px;">
+      <div style="height: 20%; background-color: #ff0000;"></div>
+      <div style="height: 20%; background-color: #ffa500;"></div>
+      <div style="height: 20%; background-color: #ffff00;"></div>
+      <div style="height: 20%; background-color: #00ff00;"></div>
+      <div style="height: 20%; background-color: #006400;"></div>
+    </div>
+    """
+    st.markdown(battery_html, unsafe_allow_html=True)
+    energy = st.radio("Selecciona nivel de energía:", 
+                      options=["Nivel 1", "Nivel 2", "Nivel 3", "Nivel 4", "Nivel 5"], 
+                      horizontal=True)
+    
+    st.write("Adjunta tu foto:")
+    foto = st.file_uploader("Sube tu foto", type=["png", "jpg", "jpeg"])
+    if foto is not None:
+         st.image(foto, caption="Foto subida", use_column_width=True)
+         foto_bytes = foto.read()
+         foto_base64 = base64.b64encode(foto_bytes).decode('utf-8')
+    else:
+         foto_base64 = ""
     
     if st.button("✅ Registrar asistencia"):
-        db.collection("attendance").document("Enrique").set({
-            "fecha": datetime.now().strftime("%Y-%m-%d"),
-            "estado_animo": feelings[selected_feeling],
-            "problema_salud": health_problem,
-            "energia": energy
-        })
-        st.success("Asistencia registrada correctamente.")
+         db.collection("attendance").document("Enrique").set({
+             "fecha": datetime.now().strftime("%Y-%m-%d"),
+             "estado_animo": feelings[selected_feeling],
+             "problema_salud": health_problem,
+             "energia": energy,
+             "foto": foto_base64
+         })
+         st.success("Asistencia registrada correctamente.")
 
 # ----------------
 # Recognition: Enviar felicitaciones
@@ -118,7 +143,7 @@ elif choice == "Recognition":
     st.subheader("🎉 Recognition")
     st.write("Envía un reconocimiento a un compañero.")
     with st.form("recognition_form"):
-        destinatario = st.text_input("Email destinatario")
+        destinatario = st.text_input("Email del destinatario")
         asunto = st.text_input("Asunto")
         mensaje = st.text_area("Mensaje de felicitación")
         submit_recognition = st.form_submit_button("Enviar reconocimiento")
@@ -160,7 +185,6 @@ elif choice == "Escalations":
 # ----------------
 elif choice == "Top 3":
     st.subheader("📌 Top 3 Prioridades - Resumen")
-    # Mostrar resumen de tareas en Top 3 para el usuario "Enrique"
     tasks = list(db.collection("top3").where("usuario", "==", "Enrique").stream())
     if tasks:
         for task in tasks:
@@ -216,7 +240,6 @@ elif choice == "Top 3":
 # ----------------
 elif choice == "Action Board":
     st.subheader("✅ Acciones y Seguimiento - Resumen")
-    # Mostrar resumen de acciones para el usuario "Enrique"
     actions = list(db.collection("actions").where("usuario", "==", "Enrique").stream())
     if actions:
         for action in actions:
@@ -226,6 +249,13 @@ elif choice == "Action Board":
             status_val = act_data.get('status', '')
             color = status_colors.get(status_val, "black")
             st.markdown(f"**Status:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
+            st.write(f"Nivel de energía: {act_data.get('energy_level','')}")
+            if "escalation" in act_data:
+                esc = act_data["escalation"]
+                st.markdown(f"**Escalación:** Quien: {esc.get('quien_escala','')}, Por qué: {esc.get('por_que','')}, Para quién: {esc.get('para_quien','')}, Con quién: {esc.get('con_quien','')}")
+            if "recognition" in act_data:
+                rec = act_data["recognition"]
+                st.markdown(f"**Recognition:** Email: {rec.get('email','')}, Mensaje: {rec.get('mensaje','')}")
             if st.button("🗑️ Eliminar", key=f"delete_action_{action.id}"):
                 db.collection("actions").document(action.id).delete()
                 st.success("Acción eliminada. Recarga la página para ver el cambio.")
@@ -306,7 +336,7 @@ elif choice == "Calendar":
             data = doc.to_dict()
             events.append({
                 "title": data.get("evento", "Evento"),
-                "start": data.get("fecha")  # Se asume formato YYYY-MM-DD
+                "start": data.get("fecha")
             })
         events_json = json.dumps(events)
         
