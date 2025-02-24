@@ -5,10 +5,50 @@ from datetime import datetime
 import streamlit.components.v1 as components
 import json
 
+# ================================
+# Lista de usuarios válidos:
+# ================================
+valid_users = {
+    "VREYES": "Reyes Escorsia Victor Manuel",
+    "RCRUZ": "Cruz Madariaga Rodrigo",
+    "AZENTENO": "Zenteno Perez Alejandro",
+    "XGUTIERREZ": "Gutierrez Hernandez Ximena",
+    "CNAPOLES": "Napoles Escalante Christopher Enrique",
+    "MSANCHEZ": "Sanchez Cruz Miriam Viviana",
+    "MHERNANDEZ": "Hernandez Ponce Maria Guadalupe",
+    "MGARCIA": "Garcia Vazquez Mariana Aketzalli"
+}
+
+# ================================
+# Pantalla de Login
+# ================================
+if "user_code" not in st.session_state:
+    st.session_state.user_code = None
+
+if st.session_state.user_code is None:
+    st.title("🔥 Daily Huddle - Login")
+    st.write("Ingresa tu código de usuario (Ejemplo: CNAPOLES para Christopher Napoles)")
+    user_input = st.text_input("Código de usuario:", max_chars=20)
+    if st.button("Ingresar"):
+        user_input = user_input.strip().upper()
+        if user_input in valid_users:
+            st.session_state.user_code = user_input
+            st.success(f"¡Bienvenido, {valid_users[user_input]}!")
+            st.experimental_rerun()  # Recarga la app una vez logueado
+        else:
+            st.error("Código de usuario inválido. Intenta nuevamente.")
+    st.stop()
+
+# ================================
+# Si se ha autenticado el usuario, continuar con la app
+# ================================
+user_code = st.session_state.user_code  # Código del usuario autenticado
+
 # -------------------------------------------------------------------
-# Encabezado: Solo el título (sin imagen)
+# Encabezado: Título de la app (se muestra el nombre completo del usuario)
 # -------------------------------------------------------------------
-st.title("🔥 Daily Huddle - Enrique")
+st.title("🔥 Daily Huddle")
+st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
 
 # -------------------------------------------------------------------
 # Temporizador: Se inicia solo al presionar "Start Timer"
@@ -95,11 +135,11 @@ if choice == "Overview":
 elif choice == "Attendance":
     st.subheader("📝 Registro de Asistencia")
     today_date = datetime.now().strftime("%Y-%m-%d")
-    attendance_doc = db.collection("attendance").document("Enrique").get()
+    attendance_doc = db.collection("attendance").document(user_code).get()
     if attendance_doc.exists:
         data = attendance_doc.to_dict()
         if data.get("fecha") != today_date:
-            db.collection("attendance").document("Enrique").delete()
+            db.collection("attendance").document(user_code).delete()
     
     st.write("💡 ¿Cómo te sientes hoy?")
     feelings = {
@@ -132,7 +172,7 @@ elif choice == "Attendance":
     st.markdown(battery_html, unsafe_allow_html=True)
     
     if st.button("✅ Registrar asistencia"):
-         db.collection("attendance").document("Enrique").set({
+         db.collection("attendance").document(user_code).set({
              "fecha": today_date,
              "estado_animo": feelings[selected_feeling],
              "problema_salud": health_problem,
@@ -153,7 +193,7 @@ elif choice == "Recognition":
         submit_recognition = st.form_submit_button("Enviar reconocimiento")
     if submit_recognition:
         db.collection("recognitions").add({
-            "usuario": "Enrique",
+            "usuario": user_code,
             "destinatario": destinatario,
             "asunto": asunto,
             "mensaje": mensaje,
@@ -175,7 +215,7 @@ elif choice == "Escalations":
         submit_escalation = st.form_submit_button("Enviar escalación")
     if submit_escalation:
         db.collection("escalations").add({
-            "usuario": "Enrique",
+            "usuario": user_code,
             "quien_escala": quien_escala,
             "por_que": por_que,
             "para_quien": para_quien,
@@ -191,7 +231,7 @@ elif choice == "Top 3":
     st.subheader("📌 Top 3 Prioridades - Resumen")
     top3_container = st.empty()
     def load_top3():
-        tasks = list(db.collection("top3").where("usuario", "==", "Enrique").stream())
+        tasks = list(db.collection("top3").where("usuario", "==", user_code).stream())
         top3_container.empty()
         with top3_container.container():
             st.markdown("---")
@@ -258,7 +298,7 @@ elif choice == "Top 3":
             final_status = get_status(s, custom_status)
             fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
             data = {
-                "usuario": "Enrique",
+                "usuario": user_code,
                 "descripcion": p,
                 "fecha_inicio": ti.strftime("%Y-%m-%d"),
                 "fecha_compromiso": tc.strftime("%Y-%m-%d"),
@@ -281,7 +321,7 @@ elif choice == "Action Board":
     st.subheader("✅ Acciones y Seguimiento - Resumen")
     action_container = st.empty()
     def load_actions():
-        actions = list(db.collection("actions").where("usuario", "==", "Enrique").stream())
+        actions = list(db.collection("actions").where("usuario", "==", user_code).stream())
         action_container.empty()
         with action_container.container():
             st.markdown("---")
@@ -331,10 +371,7 @@ elif choice == "Action Board":
                     st.markdown("---")
             else:
                 st.info("No hay acciones registradas.")
-    try:
-        load_actions()
-    except Exception:
-        pass
+    load_actions()
     
     if st.button("➕ Agregar Acción"):
         st.session_state.show_action_form = True
@@ -351,7 +388,7 @@ elif choice == "Action Board":
             final_status = get_status(s, custom_status)
             fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
             data = {
-                "usuario": "Enrique",
+                "usuario": user_code,
                 "accion": accion,
                 "fecha_inicio": ti.strftime("%Y-%m-%d"),
                 "fecha_compromiso": tc.strftime("%Y-%m-%d"),
@@ -375,7 +412,7 @@ elif choice == "Communications":
     mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
     if st.button("📩 Enviar mensaje"):
         db.collection("communications").document().set({
-            "usuario": "Enrique",
+            "usuario": user_code,
             "fecha": datetime.now().strftime("%Y-%m-%d"),
             "mensaje": mensaje
         })
@@ -393,7 +430,7 @@ elif choice == "Calendar":
         fecha_evento = st.date_input("📅 Selecciona la fecha")
         if st.button("✅ Agendar evento"):
             db.collection("calendar").document().set({
-                "usuario": "Enrique",
+                "usuario": user_code,
                 "evento": evento,
                 "fecha": fecha_evento.strftime("%Y-%m-%d")
             })
