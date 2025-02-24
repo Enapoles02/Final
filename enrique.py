@@ -5,9 +5,9 @@ from datetime import datetime
 import streamlit.components.v1 as components
 import json
 
-# -------------------------------------------------------------------
-# Temporizador: Solo se inicia al presionar "Start Timer"
-# -------------------------------------------------------------------
+# -------------------------------
+# Temporizador: Se inicia con botón
+# -------------------------------
 if "timer_started" not in st.session_state:
     st.session_state.timer_started = False
 
@@ -38,9 +38,9 @@ if st.session_state.timer_started:
     """
     components.html(countdown_html, height=70)
 
-# -------------------------------------------------------------------
+# -------------------------------
 # Inicialización de Firebase
-# -------------------------------------------------------------------
+# -------------------------------
 firebase_config = st.secrets["firebase"]
 if not isinstance(firebase_config, dict):
     firebase_config = firebase_config.to_dict()
@@ -55,31 +55,31 @@ except Exception as e:
 
 db = firestore.client()
 
-# -------------------------------------------------------------------
-# Opciones de status con colores/íconos
-# -------------------------------------------------------------------
-status_options = {
-    "Pendiente": "🔴 Pendiente",
-    "En proceso": "🟡 En proceso",
-    "Completado": "🟢 Completado"
+# Función para determinar status (si hay un status personalizado, se usa ese)
+def get_status(selected, custom):
+    return custom.strip() if custom and custom.strip() != "" else selected
+
+# Diccionario para colores de status
+status_colors = {
+    "Pendiente": "red",
+    "En proceso": "orange",
+    "Completado": "green"
 }
 
-# -------------------------------------------------------------------
+# -------------------------------
 # Interfaz de la aplicación
-# -------------------------------------------------------------------
+# -------------------------------
 st.title("🔥 Daily Huddle - Enrique 🔥")
 menu = ["Overview", "Attendance", "Top 3", "Action Board", "Communications", "Calendar"]
 choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu)
 
-# ---------- OVERVIEW ----------
 if choice == "Overview":
     st.subheader("📋 ¿Qué es el Daily Huddle?")
     st.write("""
-    Bienvenido a tu Daily Huddle. Aquí podrás registrar tu asistencia, prioridades, acciones pendientes, reconocimientos, escalaciones y eventos importantes del equipo.
+    Bienvenido a tu Daily Huddle. Aquí podrás registrar tu asistencia, prioridades, acciones, reconocimientos, escalaciones y eventos importantes del equipo.
     \n👈 Usa la barra lateral para navegar entre las diferentes secciones.
     """)
 
-# ---------- ATTENDANCE ----------
 elif choice == "Attendance":
     st.subheader("📝 Registro de Asistencia")
     st.write("💡 ¿Cómo te sientes hoy?")
@@ -102,7 +102,6 @@ elif choice == "Attendance":
         })
         st.success("Asistencia registrada correctamente.")
 
-# ---------- TOP 3 ----------
 elif choice == "Top 3":
     st.subheader("📌 Top 3 Prioridades - Resumen")
     
@@ -112,14 +111,11 @@ elif choice == "Top 3":
         for task in tasks:
             task_data = task.to_dict()
             st.markdown(f"**{task_data.get('descripcion','')}**")
-            st.write(f"Inicio: {task_data.get('fecha_inicio','')}  |  Compromiso: {task_data.get('fecha_compromiso','')}  |  Real: {task_data.get('fecha_real','')}")
-            st.write(f"Status: {task_data.get('status','')}")
-            st.write(f"Nivel de energía: {task_data.get('energia','')}")
-            if task_data.get("reconocimiento"):
-                st.info(f"Reconocimiento: {task_data.get('reconocimiento')}")
-            if task_data.get("escalacion"):
-                escal = task_data.get("escalacion")
-                st.warning(f"Escalación -> Quien: {escal.get('quien','')}, Por: {escal.get('por','')}, Para: {escal.get('para','')}, Con: {escal.get('con','')}")
+            st.write(f"Inicio: {task_data.get('fecha_inicio','')} | Compromiso: {task_data.get('fecha_compromiso','')} | Real: {task_data.get('fecha_real','')}")
+            # Mostrar status con color (si coincide con alguno del diccionario)
+            status_val = task_data.get('status', '')
+            color = status_colors.get(status_val, "black")
+            st.markdown(f"**Status:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
             if st.button("🗑️ Eliminar", key=f"delete_top3_{task.id}"):
                 db.collection("top3").document(task.id).delete()
                 st.success("Tarea eliminada. Recarga la página para ver el cambio.")
@@ -139,37 +135,44 @@ elif choice == "Top 3":
             p = st.text_input("Descripción")
             ti = st.date_input("Fecha de inicio")
             tc = st.date_input("Fecha compromiso")
-            s = st.selectbox("Status", list(status_options.keys()))
-            energia = st.slider("Nivel de energía (0 a 5)", 0, 5, 3)
-            reconocimiento = st.text_area("Mensaje de reconocimiento (opcional)")
-            st.markdown("#### Datos de Escalación (opcional)")
-            escal_quien = st.text_input("Quien escala")
-            escal_por = st.text_input("Por qué")
-            escal_para = st.text_input("Para quién")
-            escal_con = st.text_input("Con quién se tiene el tema")
+            s = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="top3_status")
+            custom_status = st.text_input("Status personalizado (opcional)", key="custom_status_top3")
+            energy = st.slider("Nivel de energía", min_value=1, max_value=5, value=3)
+            
+            with st.expander("Agregar Recognition (opcional)"):
+                rec_email = st.text_input("Email destinatario", key="rec_email_top3")
+                rec_msg = st.text_area("Mensaje de felicitación", key="rec_msg_top3")
+            
+            with st.expander("Agregar Escalación (opcional)"):
+                esc_quien = st.text_input("¿Quién escala?", key="esc_quien_top3")
+                esc_por_que = st.text_area("¿Por qué?", key="esc_por_que_top3")
+                esc_para_quien = st.text_input("¿Para quién?", key="esc_para_quien_top3")
+                esc_con_quien = st.text_input("¿Con quién se tiene el tema?", key="esc_con_quien_top3")
+            
             submit_new_top3 = st.form_submit_button("Guardar tarea")
         if submit_new_top3:
-            fecha_real = datetime.now().strftime("%Y-%m-%d") if s == "Completado" else ""
-            escalacion = None
-            if escal_quien or escal_por or escal_para or escal_con:
-                escalacion = {
-                    "quien": escal_quien,
-                    "por": escal_por,
-                    "para": escal_para,
-                    "con": escal_con
-                }
-            db.collection("top3").add({
+            final_status = get_status(s, custom_status)
+            fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
+            data = {
                 "usuario": "Enrique",
                 "descripcion": p,
                 "fecha_inicio": ti.strftime("%Y-%m-%d"),
                 "fecha_compromiso": tc.strftime("%Y-%m-%d"),
                 "fecha_real": fecha_real,
-                "status": status_options[s],
-                "energia": energia,
-                "reconocimiento": reconocimiento,
-                "escalacion": escalacion,
+                "status": final_status,
+                "energy_level": energy,
                 "timestamp": datetime.now()
-            })
+            }
+            if rec_email or rec_msg:
+                data["recognition"] = {"email": rec_email, "mensaje": rec_msg}
+            if esc_quien or esc_por_que or esc_para_quien or esc_con_quien:
+                data["escalation"] = {
+                    "quien_escala": esc_quien,
+                    "por_que": esc_por_que,
+                    "para_quien": esc_para_quien,
+                    "con_quien": esc_con_quien
+                }
+            db.collection("top3").add(data)
             st.success("Tarea de Top 3 guardada.")
             st.session_state.show_top3_form = False
             try:
@@ -177,24 +180,27 @@ elif choice == "Top 3":
             except Exception:
                 pass
 
-# ---------- ACTION BOARD ----------
 elif choice == "Action Board":
     st.subheader("✅ Acciones y Seguimiento - Resumen")
     
-    # Mostrar resumen de acciones en Action Board para el usuario "Enrique"
+    # Mostrar resumen de acciones para el usuario "Enrique"
     actions = list(db.collection("actions").where("usuario", "==", "Enrique").stream())
     if actions:
         for action in actions:
             act_data = action.to_dict()
             st.markdown(f"**{act_data.get('accion','')}**")
-            st.write(f"Inicio: {act_data.get('fecha_inicio','')}  |  Compromiso: {act_data.get('fecha_compromiso','')}  |  Real: {act_data.get('fecha_real','')}")
-            st.write(f"Status: {act_data.get('status','')}")
-            st.write(f"Nivel de energía: {act_data.get('energia','')}")
-            if act_data.get("reconocimiento"):
-                st.info(f"Reconocimiento: {act_data.get('reconocimiento')}")
-            if act_data.get("escalacion"):
-                escal = act_data.get("escalacion")
-                st.warning(f"Escalación -> Quien: {escal.get('quien','')}, Por: {escal.get('por','')}, Para: {escal.get('para','')}, Con: {escal.get('con','')}")
+            st.write(f"Inicio: {act_data.get('fecha_inicio','')} | Compromiso: {act_data.get('fecha_compromiso','')} | Real: {act_data.get('fecha_real','')}")
+            status_val = act_data.get('status', '')
+            color = status_colors.get(status_val, "black")
+            st.markdown(f"**Status:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
+            st.write(f"Nivel de energía: {act_data.get('energy_level', '')}")
+            # Si existen reconocimiento o escalación, mostrarlos
+            if "recognition" in act_data:
+                rec = act_data["recognition"]
+                st.markdown(f"**Recognition:** Email: {rec.get('email','')}, Mensaje: {rec.get('mensaje','')}")
+            if "escalation" in act_data:
+                esc = act_data["escalation"]
+                st.markdown(f"**Escalación:** Quien: {esc.get('quien_escala','')}, Por qué: {esc.get('por_que','')}, Para quién: {esc.get('para_quien','')}, Con quién: {esc.get('con_quien','')}")
             if st.button("🗑️ Eliminar", key=f"delete_action_{action.id}"):
                 db.collection("actions").document(action.id).delete()
                 st.success("Acción eliminada. Recarga la página para ver el cambio.")
@@ -214,37 +220,44 @@ elif choice == "Action Board":
             accion = st.text_input("Descripción de la acción")
             ti = st.date_input("Fecha de inicio")
             tc = st.date_input("Fecha compromiso")
-            status = st.selectbox("Status", list(status_options.keys()))
-            energia = st.slider("Nivel de energía (0 a 5)", 0, 5, 3)
-            reconocimiento = st.text_area("Mensaje de reconocimiento (opcional)")
-            st.markdown("#### Datos de Escalación (opcional)")
-            escal_quien = st.text_input("Quien escala")
-            escal_por = st.text_input("Por qué")
-            escal_para = st.text_input("Para quién")
-            escal_con = st.text_input("Con quién se tiene el tema")
+            s = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="action_status")
+            custom_status = st.text_input("Status personalizado (opcional)", key="custom_status_action")
+            energy = st.slider("Nivel de energía", min_value=1, max_value=5, value=3, key="energy_action")
+            
+            with st.expander("Agregar Recognition (opcional)"):
+                rec_email = st.text_input("Email destinatario", key="rec_email_action")
+                rec_msg = st.text_area("Mensaje de felicitación", key="rec_msg_action")
+            
+            with st.expander("Agregar Escalación (opcional)"):
+                esc_quien = st.text_input("¿Quién escala?", key="esc_quien_action")
+                esc_por_que = st.text_area("¿Por qué?", key="esc_por_que_action")
+                esc_para_quien = st.text_input("¿Para quién?", key="esc_para_quien_action")
+                esc_con_quien = st.text_input("¿Con quién se tiene el tema?", key="esc_con_quien_action")
+            
             submit_new_action = st.form_submit_button("Guardar acción")
         if submit_new_action:
-            fecha_real = datetime.now().strftime("%Y-%m-%d") if status == "Completado" else ""
-            escalacion = None
-            if escal_quien or escal_por or escal_para or escal_con:
-                escalacion = {
-                    "quien": escal_quien,
-                    "por": escal_por,
-                    "para": escal_para,
-                    "con": escal_con
-                }
-            db.collection("actions").add({
+            final_status = get_status(s, custom_status)
+            fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
+            data = {
                 "usuario": "Enrique",
                 "accion": accion,
                 "fecha_inicio": ti.strftime("%Y-%m-%d"),
                 "fecha_compromiso": tc.strftime("%Y-%m-%d"),
                 "fecha_real": fecha_real,
-                "status": status_options[status],
-                "energia": energia,
-                "reconocimiento": reconocimiento,
-                "escalacion": escalacion,
+                "status": final_status,
+                "energy_level": energy,
                 "fecha": datetime.now().strftime("%Y-%m-%d")
-            })
+            }
+            if rec_email or rec_msg:
+                data["recognition"] = {"email": rec_email, "mensaje": rec_msg}
+            if esc_quien or esc_por_que or esc_para_quien or esc_con_quien:
+                data["escalation"] = {
+                    "quien_escala": esc_quien,
+                    "por_que": esc_por_que,
+                    "para_quien": esc_para_quien,
+                    "con_quien": esc_con_quien
+                }
+            db.collection("actions").add(data)
             st.success("Acción guardada.")
             st.session_state.show_action_form = False
             try:
@@ -252,7 +265,6 @@ elif choice == "Action Board":
             except Exception:
                 pass
 
-# ---------- COMMUNICATIONS ----------
 elif choice == "Communications":
     st.subheader("📢 Mensajes Importantes")
     mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
@@ -264,7 +276,6 @@ elif choice == "Communications":
         })
         st.success("Mensaje enviado.")
 
-# ---------- CALENDAR ----------
 elif choice == "Calendar":
     st.subheader("📅 Calendario")
     cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
@@ -298,4 +309,31 @@ elif choice == "Calendar":
         <head>
           <meta charset='utf-8' />
           <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
-         
+          <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+          <style>
+            body {{
+              margin: 0;
+              padding: 0;
+            }}
+            #calendar {{
+              max-width: 900px;
+              margin: 40px auto;
+            }}
+          </style>
+        </head>
+        <body>
+          <div id='calendar'></div>
+          <script>
+            document.addEventListener('DOMContentLoaded', function() {{
+              var calendarEl = document.getElementById('calendar');
+              var calendar = new FullCalendar.Calendar(calendarEl, {{
+                initialView: 'dayGridMonth',
+                events: {events_json}
+              }});
+              calendar.render();
+            }});
+          </script>
+        </body>
+        </html>
+        """
+        components.html(calendar_html, height=600, scrolling=True)
