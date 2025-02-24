@@ -4,64 +4,11 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 import streamlit.components.v1 as components
 import json
-import base64
 
 # -------------------------------------------------------------------
-# Hack de CSS para minimizar el file uploader
+# Encabezado: Solo el título (se quitó la imagen)
 # -------------------------------------------------------------------
-HIDE_UPLOADER_STYLE = """
-<style>
-/* Reducir el contenedor principal del file uploader */
-div[data-baseweb="fileUploader"] {
-    width: 40px !important; /* Ajusta el ancho deseado */
-    height: 40px !important; /* Ajusta la altura deseada */
-    overflow: hidden !important;
-    border: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-}
-/* Reducir/ocultar el área interna donde se muestra el texto */
-div[data-testid="stFileUploadDropzone"] {
-    min-height: 40px !important;
-    max-height: 40px !important;
-    border: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    overflow: hidden !important;
-}
-/* Ocultar textos, botones y etiquetas */
-div[data-testid="stFileUploadDropzone"] p,
-div[data-testid="stFileUploadDropzone"] label,
-div[data-testid="stFileUploadDropzone"] button,
-div[data-testid="stFileUploadDropzone"] span {
-    display: none !important;
-}
-</style>
-"""
-st.markdown(HIDE_UPLOADER_STYLE, unsafe_allow_html=True)
-
-# -------------------------------------------------------------------
-# Encabezado: Título y file uploader minimalista en dos columnas
-# -------------------------------------------------------------------
-col_title, col_profile = st.columns([3, 1])
-with col_title:
-    st.title("🔥 Daily Huddle - Enrique")
-
-with col_profile:
-    # File uploader sin texto visible, sólo un recuadro pequeño clicable (40x40).
-    profile_photo = st.file_uploader(
-        "",
-        type=["png", "jpg", "jpeg"],
-        key="profile_photo",
-        label_visibility="hidden"
-    )
-    # Si se sube la imagen, la mostramos a 80 px de ancho
-    if profile_photo:
-        st.image(profile_photo, width=80)
-        profile_photo_bytes = profile_photo.read()
-        profile_photo_base64 = base64.b64encode(profile_photo_bytes).decode('utf-8')
-    else:
-        profile_photo_base64 = ""
+st.title("🔥 Daily Huddle - Enrique")
 
 # -------------------------------------------------------------------
 # Temporizador: Se inicia solo al presionar "Start Timer"
@@ -75,7 +22,8 @@ if not st.session_state.timer_started:
 
 if st.session_state.timer_started:
     countdown_html = """
-    <div id="countdown" style="position: fixed; top: 10px; right: 10px; background-color: #f0f0f0; padding: 10px; border-radius: 5px; font-size: 18px; z-index:1000;">
+    <div id="countdown" style="position: fixed; top: 10px; right: 10px; background-color: #f0f0f0; 
+         padding: 10px; border-radius: 5px; font-size: 18px; z-index:1000;">
       30:00
     </div>
     <script>
@@ -113,7 +61,7 @@ except Exception as e:
 
 db = firestore.client()
 
-# Función para determinar el status (usa el personalizado si se ingresa)
+# Función para combinar status y status personalizado
 def get_status(selected, custom):
     return custom.strip() if custom and custom.strip() != "" else selected
 
@@ -137,17 +85,18 @@ choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu)
 if choice == "Overview":
     st.subheader("📋 ¿Qué es el Daily Huddle?")
     st.write("""
-    Bienvenido a tu Daily Huddle. Aquí podrás registrar tu asistencia, prioridades, acciones, reconocimientos, escalaciones y eventos importantes del equipo.
+    Bienvenido a tu Daily Huddle. Aquí podrás registrar tu asistencia, prioridades, acciones, 
+    reconocimientos, escalaciones y eventos importantes del equipo.
     \n👈 Usa la barra lateral para navegar entre las diferentes secciones.
     """)
 
 # ----------------
-# Attendance: Registro de asistencia con pila dinámica
+# Attendance
 # ----------------
 elif choice == "Attendance":
     st.subheader("📝 Registro de Asistencia")
     
-    # Se verifica que la asistencia sea del día actual
+    # Verificar y limpiar asistencia de días anteriores
     today_date = datetime.now().strftime("%Y-%m-%d")
     attendance_doc = db.collection("attendance").document("Enrique").get()
     if attendance_doc.exists:
@@ -167,8 +116,8 @@ elif choice == "Attendance":
     selected_feeling = st.radio("Selecciona tu estado de ánimo:", list(feelings.keys()))
     health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
     
+    # Pila de energía
     st.write("Nivel de energía:")
-    # Pila visual dinámica: se llena según el nivel seleccionado
     energy_options = ["Nivel 1", "Nivel 2", "Nivel 3", "Nivel 4", "Nivel 5"]
     energy_level = st.radio("Selecciona tu nivel de energía:", options=energy_options, horizontal=True)
     level_mapping = {
@@ -179,6 +128,7 @@ elif choice == "Attendance":
         "Nivel 5": 100
     }
     fill_percent = level_mapping[energy_level]
+    
     battery_html = f"""
     <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px; position: relative;">
       <div style="position: absolute; bottom: 0; width: 100%; height: {fill_percent}%; background-color: #00ff00;"></div>
@@ -191,13 +141,12 @@ elif choice == "Attendance":
              "fecha": today_date,
              "estado_animo": feelings[selected_feeling],
              "problema_salud": health_problem,
-             "energia": energy_level,
-             "foto": profile_photo_base64  # Se utiliza la foto subida en el encabezado
+             "energia": energy_level
          })
          st.success("Asistencia registrada correctamente.")
 
 # ----------------
-# Recognition: Enviar felicitaciones
+# Recognition
 # ----------------
 elif choice == "Recognition":
     st.subheader("🎉 Recognition")
@@ -218,7 +167,7 @@ elif choice == "Recognition":
         st.success("Reconocimiento enviado.")
 
 # ----------------
-# Escalations: Registrar escalaciones
+# Escalations
 # ----------------
 elif choice == "Escalations":
     st.subheader("⚠️ Escalations")
@@ -241,31 +190,67 @@ elif choice == "Escalations":
         st.success("Escalación registrada.")
 
 # ----------------
-# Top 3: Tareas y prioridades
+# Top 3: Tareas y prioridades (con edición de status)
 # ----------------
 elif choice == "Top 3":
     st.subheader("📌 Top 3 Prioridades - Resumen")
     tasks = list(db.collection("top3").where("usuario", "==", "Enrique").stream())
     if tasks:
         for task in tasks:
+            task_id = task.id
             task_data = task.to_dict()
-            st.markdown(f"**{task_data.get('descripcion','')}**")
-            st.write(f"Inicio: {task_data.get('fecha_inicio','')} | Compromiso: {task_data.get('fecha_compromiso','')} | Real: {task_data.get('fecha_real','')}")
+            st.markdown(f"**{task_data.get('descripcion','(Sin descripción)')}**")
+            st.write(f"Inicio: {task_data.get('fecha_inicio','')} | "
+                     f"Compromiso: {task_data.get('fecha_compromiso','')} | "
+                     f"Real: {task_data.get('fecha_real','')}")
+            
+            # Mostrar status actual con color
             status_val = task_data.get('status', '')
             color = status_colors.get(status_val, "black")
-            st.markdown(f"**Status:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
-            if st.button("🗑️ Eliminar", key=f"delete_top3_{task.id}"):
-                db.collection("top3").document(task.id).delete()
-                st.success("Tarea eliminada. Recarga la página para ver el cambio.")
-                try:
-                    st.experimental_rerun()
-                except Exception:
-                    pass
+            st.markdown(f"**Status actual:** <span style='color: {color};'>{status_val}</span>", 
+                        unsafe_allow_html=True)
+            
+            # Permitir editar el status
+            new_status = st.selectbox(
+                "Editar status",
+                ["Pendiente", "En proceso", "Completado"],
+                index=["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente","En proceso","Completado"] else 0,
+                key=f"select_top3_{task_id}"
+            )
+            custom_status = st.text_input("Status personalizado (opcional)", key=f"custom_top3_{task_id}")
+            
+            if st.button("Actualizar Status", key=f"update_top3_{task_id}"):
+                final_status = get_status(new_status, custom_status)
+                
+                # Si el status es "Completado", se asigna la fecha real si no existe; 
+                # o la actualizamos si prefieres sobrescribir siempre.
+                if final_status.lower() == "completado":
+                    fecha_real = datetime.now().strftime("%Y-%m-%d")
+                else:
+                    # Conservar fecha_real previa o dejarla vacía, tú decides
+                    fecha_real = task_data.get("fecha_real", "")
+                
+                db.collection("top3").document(task_id).update({
+                    "status": final_status,
+                    "fecha_real": fecha_real
+                })
+                st.success("Status actualizado.")
+                st.experimental_rerun()
+            
+            # Botón para eliminar
+            if st.button("🗑️ Eliminar", key=f"delete_top3_{task_id}"):
+                db.collection("top3").document(task_id).delete()
+                st.success("Tarea eliminada.")
+                st.experimental_rerun()
+            
+            st.markdown("---")
     else:
         st.info("No hay tareas de Top 3 registradas.")
     
+    # Botón para crear nueva tarea
     if st.button("➕ Agregar Tarea de Top 3"):
         st.session_state.show_top3_form = True
+    
     if st.session_state.get("show_top3_form"):
         with st.form("top3_add_form"):
             st.markdown("### Nueva Tarea - Top 3")
@@ -275,6 +260,7 @@ elif choice == "Top 3":
             s = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="top3_status")
             custom_status = st.text_input("Status personalizado (opcional)", key="custom_status_top3")
             submit_new_top3 = st.form_submit_button("Guardar tarea")
+        
         if submit_new_top3:
             final_status = get_status(s, custom_status)
             fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
@@ -290,37 +276,64 @@ elif choice == "Top 3":
             db.collection("top3").add(data)
             st.success("Tarea de Top 3 guardada.")
             st.session_state.show_top3_form = False
-            try:
-                st.experimental_rerun()
-            except Exception:
-                pass
+            st.experimental_rerun()
 
 # ----------------
-# Action Board: Acciones y seguimiento
+# Action Board: Acciones y seguimiento (con edición de status)
 # ----------------
 elif choice == "Action Board":
     st.subheader("✅ Acciones y Seguimiento - Resumen")
     actions = list(db.collection("actions").where("usuario", "==", "Enrique").stream())
     if actions:
         for action in actions:
+            action_id = action.id
             act_data = action.to_dict()
-            st.markdown(f"**{act_data.get('accion','')}**")
-            st.write(f"Inicio: {act_data.get('fecha_inicio','')} | Compromiso: {act_data.get('fecha_compromiso','')} | Real: {act_data.get('fecha_real','')}")
+            st.markdown(f"**{act_data.get('accion','(Sin descripción)')}**")
+            st.write(f"Inicio: {act_data.get('fecha_inicio','')} | "
+                     f"Compromiso: {act_data.get('fecha_compromiso','')} | "
+                     f"Real: {act_data.get('fecha_real','')}")
+            
             status_val = act_data.get('status', '')
             color = status_colors.get(status_val, "black")
-            st.markdown(f"**Status:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
-            if st.button("🗑️ Eliminar", key=f"delete_action_{action.id}"):
-                db.collection("actions").document(action.id).delete()
-                st.success("Acción eliminada. Recarga la página para ver el cambio.")
-                try:
-                    st.experimental_rerun()
-                except Exception:
-                    pass
+            st.markdown(f"**Status actual:** <span style='color: {color};'>{status_val}</span>", 
+                        unsafe_allow_html=True)
+            
+            # Editar status
+            new_status = st.selectbox(
+                "Editar status",
+                ["Pendiente", "En proceso", "Completado"],
+                index=["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente","En proceso","Completado"] else 0,
+                key=f"select_action_{action_id}"
+            )
+            custom_status = st.text_input("Status personalizado (opcional)", key=f"custom_action_{action_id}")
+            
+            if st.button("Actualizar Status", key=f"update_action_{action_id}"):
+                final_status = get_status(new_status, custom_status)
+                if final_status.lower() == "completado":
+                    fecha_real = datetime.now().strftime("%Y-%m-%d")
+                else:
+                    fecha_real = act_data.get("fecha_real", "")
+                
+                db.collection("actions").document(action_id).update({
+                    "status": final_status,
+                    "fecha_real": fecha_real
+                })
+                st.success("Status actualizado.")
+                st.experimental_rerun()
+            
+            # Eliminar
+            if st.button("🗑️ Eliminar", key=f"delete_action_{action_id}"):
+                db.collection("actions").document(action_id).delete()
+                st.success("Acción eliminada.")
+                st.experimental_rerun()
+            
+            st.markdown("---")
     else:
         st.info("No hay acciones registradas.")
     
     if st.button("➕ Agregar Acción"):
         st.session_state.show_action_form = True
+    
     if st.session_state.get("show_action_form"):
         with st.form("action_add_form"):
             st.markdown("### Nueva Acción")
@@ -330,6 +343,7 @@ elif choice == "Action Board":
             s = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="action_status")
             custom_status = st.text_input("Status personalizado (opcional)", key="custom_status_action")
             submit_new_action = st.form_submit_button("Guardar acción")
+        
         if submit_new_action:
             final_status = get_status(s, custom_status)
             fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
@@ -345,10 +359,7 @@ elif choice == "Action Board":
             db.collection("actions").add(data)
             st.success("Acción guardada.")
             st.session_state.show_action_form = False
-            try:
-                st.experimental_rerun()
-            except Exception:
-                pass
+            st.experimental_rerun()
 
 # ----------------
 # Communications
@@ -427,4 +438,3 @@ elif choice == "Calendar":
         </html>
         """
         components.html(calendar_html, height=600, scrolling=True)
-
