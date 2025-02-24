@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 import json
 
 # -------------------------------------------------------------------
-# Temporizador: No se inicia hasta que el usuario presione "Start Timer"
+# Temporizador: Solo se inicia al presionar "Start Timer"
 # -------------------------------------------------------------------
 if "timer_started" not in st.session_state:
     st.session_state.timer_started = False
@@ -84,8 +84,7 @@ elif choice == "Attendance":
     health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
     
     if st.button("✅ Registrar asistencia"):
-        doc_ref = db.collection("attendance").document("Enrique")
-        doc_ref.set({
+        db.collection("attendance").document("Enrique").set({
             "fecha": datetime.now().strftime("%Y-%m-%d"),
             "estado_animo": feelings[selected_feeling],
             "problema_salud": health_problem
@@ -93,83 +92,98 @@ elif choice == "Attendance":
         st.success("Asistencia registrada correctamente.")
 
 elif choice == "Top 3":
-    st.subheader("📌 Top 3 Prioridades")
-    st.write("Ingresa las tres prioridades. Completa la descripción, fecha de inicio y compromiso, y selecciona el status. Si el status es 'Completado', se asigna automáticamente la fecha real.")
+    st.subheader("📌 Top 3 Prioridades - Resumen")
     
-    with st.form("top3_form"):
-        # Prioridad 1
-        st.markdown("**Prioridad 1**")
-        p1 = st.text_input("Descripción", key="p1")
-        ti1 = st.date_input("Fecha de inicio", key="ti1")
-        tc1 = st.date_input("Fecha compromiso", key="tc1")
-        s1 = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="s1")
-        
-        # Prioridad 2
-        st.markdown("**Prioridad 2**")
-        p2 = st.text_input("Descripción", key="p2")
-        ti2 = st.date_input("Fecha de inicio", key="ti2")
-        tc2 = st.date_input("Fecha compromiso", key="tc2")
-        s2 = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="s2")
-        
-        # Prioridad 3
-        st.markdown("**Prioridad 3**")
-        p3 = st.text_input("Descripción", key="p3")
-        ti3 = st.date_input("Fecha de inicio", key="ti3")
-        tc3 = st.date_input("Fecha compromiso", key="tc3")
-        s3 = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="s3")
-        
-        submit_top3 = st.form_submit_button("Guardar prioridades")
+    # Mostrar resumen de tareas almacenadas en la colección "top3" para el usuario "Enrique"
+    tasks = list(db.collection("top3").where("usuario", "==", "Enrique").stream())
+    if tasks:
+        for task in tasks:
+            task_data = task.to_dict()
+            st.markdown(f"**{task_data.get('descripcion','')}**")
+            st.write(f"Inicio: {task_data.get('fecha_inicio','')}  |  Compromiso: {task_data.get('fecha_compromiso','')}  |  Real: {task_data.get('fecha_real','')}")
+            st.write(f"Status: {task_data.get('status','')}")
+            if st.button("🗑️ Eliminar", key=f"delete_top3_{task.id}"):
+                db.collection("top3").document(task.id).delete()
+                st.success("Tarea eliminada. Recarga la página para ver el cambio.")
+                st.experimental_rerun()
+    else:
+        st.info("No hay tareas de Top 3 registradas.")
     
-    if submit_top3:
-        # Para cada prioridad, si el status es 'Completado', asignamos la fecha real actual; de lo contrario, se deja vacío.
-        prioridades = []
-        for desc, ti, tc, s in [(p1, ti1, tc1, s1), (p2, ti2, tc2, s2), (p3, ti3, tc3, s3)]:
+    # Botón para mostrar el formulario de agregar tarea
+    if st.button("➕ Agregar Tarea de Top 3"):
+        st.session_state.show_top3_form = True
+    if st.session_state.get("show_top3_form"):
+        with st.form("top3_add_form"):
+            st.markdown("### Nueva Tarea - Top 3")
+            p = st.text_input("Descripción")
+            ti = st.date_input("Fecha de inicio")
+            tc = st.date_input("Fecha compromiso")
+            s = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"])
+            submit_new_top3 = st.form_submit_button("Guardar tarea")
+        if submit_new_top3:
             fecha_real = datetime.now().strftime("%Y-%m-%d") if s == "Completado" else ""
-            prioridades.append({
-                "descripcion": desc,
+            db.collection("top3").add({
+                "usuario": "Enrique",
+                "descripcion": p,
                 "fecha_inicio": ti.strftime("%Y-%m-%d"),
                 "fecha_compromiso": tc.strftime("%Y-%m-%d"),
                 "fecha_real": fecha_real,
-                "status": s
+                "status": s,
+                "timestamp": datetime.now()
             })
-        doc_ref = db.collection("top3").document("Enrique")
-        doc_ref.set({
-            "fecha": datetime.now().strftime("%Y-%m-%d"),
-            "prioridades": prioridades
-        })
-        st.success("Prioridades guardadas.")
+            st.success("Tarea de Top 3 guardada.")
+            st.session_state.show_top3_form = False
+            st.experimental_rerun()
 
 elif choice == "Action Board":
-    st.subheader("✅ Acciones y Seguimiento")
-    st.write("Agrega una nueva acción. Completa la descripción, fecha de inicio y compromiso, y selecciona el status. Si el status es 'Completado', se asigna automáticamente la fecha real.")
+    st.subheader("✅ Acciones y Seguimiento - Resumen")
     
-    with st.form("action_board_form"):
-        accion = st.text_input("Descripción de la acción", key="action_desc")
-        ti = st.date_input("Fecha de inicio", key="action_ti")
-        tc = st.date_input("Fecha compromiso", key="action_tc")
-        status = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="action_status")
-        submit_action = st.form_submit_button("Guardar acción")
+    # Mostrar resumen de acciones almacenadas en la colección "actions" para el usuario "Enrique"
+    actions = list(db.collection("actions").where("usuario", "==", "Enrique").stream())
+    if actions:
+        for action in actions:
+            act_data = action.to_dict()
+            st.markdown(f"**{act_data.get('accion','')}**")
+            st.write(f"Inicio: {act_data.get('fecha_inicio','')}  |  Compromiso: {act_data.get('fecha_compromiso','')}  |  Real: {act_data.get('fecha_real','')}")
+            st.write(f"Status: {act_data.get('status','')}")
+            if st.button("🗑️ Eliminar", key=f"delete_action_{action.id}"):
+                db.collection("actions").document(action.id).delete()
+                st.success("Acción eliminada. Recarga la página para ver el cambio.")
+                st.experimental_rerun()
+    else:
+        st.info("No hay acciones registradas.")
     
-    if submit_action:
-        fecha_real = datetime.now().strftime("%Y-%m-%d") if status == "Completado" else ""
-        doc_ref = db.collection("actions").document()
-        doc_ref.set({
-            "usuario": "Enrique",
-            "fecha": datetime.now().strftime("%Y-%m-%d"),
-            "accion": accion,
-            "fecha_inicio": ti.strftime("%Y-%m-%d"),
-            "fecha_compromiso": tc.strftime("%Y-%m-%d"),
-            "fecha_real": fecha_real,
-            "status": status
-        })
-        st.success("Acción guardada.")
+    # Botón para mostrar el formulario de agregar acción
+    if st.button("➕ Agregar Acción"):
+        st.session_state.show_action_form = True
+    if st.session_state.get("show_action_form"):
+        with st.form("action_add_form"):
+            st.markdown("### Nueva Acción")
+            accion = st.text_input("Descripción de la acción")
+            ti = st.date_input("Fecha de inicio")
+            tc = st.date_input("Fecha compromiso")
+            status = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"])
+            submit_new_action = st.form_submit_button("Guardar acción")
+        if submit_new_action:
+            fecha_real = datetime.now().strftime("%Y-%m-%d") if status == "Completado" else ""
+            db.collection("actions").add({
+                "usuario": "Enrique",
+                "accion": accion,
+                "fecha_inicio": ti.strftime("%Y-%m-%d"),
+                "fecha_compromiso": tc.strftime("%Y-%m-%d"),
+                "fecha_real": fecha_real,
+                "status": status,
+                "fecha": datetime.now().strftime("%Y-%m-%d")
+            })
+            st.success("Acción guardada.")
+            st.session_state.show_action_form = False
+            st.experimental_rerun()
 
 elif choice == "Communications":
     st.subheader("📢 Mensajes Importantes")
     mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
     if st.button("📩 Enviar mensaje"):
-        doc_ref = db.collection("communications").document()
-        doc_ref.set({
+        db.collection("communications").document().set({
             "usuario": "Enrique",
             "fecha": datetime.now().strftime("%Y-%m-%d"),
             "mensaje": mensaje
@@ -184,15 +198,13 @@ elif choice == "Calendar":
         evento = st.text_input("📌 Nombre del evento")
         fecha_evento = st.date_input("📅 Selecciona la fecha")
         if st.button("✅ Agendar evento"):
-            doc_ref = db.collection("calendar").document()
-            doc_ref.set({
+            db.collection("calendar").document().set({
                 "usuario": "Enrique",
                 "evento": evento,
                 "fecha": fecha_evento.strftime("%Y-%m-%d")
             })
             st.success("Evento agendado.")
-    
-    else:  # Ver Calendario
+    else:
         # Recuperar eventos de Firestore
         events_ref = db.collection("calendar")
         events_docs = events_ref.stream()
