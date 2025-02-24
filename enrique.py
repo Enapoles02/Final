@@ -6,7 +6,7 @@ import streamlit.components.v1 as components
 import json
 
 # ================================
-# Lista de usuarios válidos
+# Lista de usuarios válidos (código -> nombre completo)
 # ================================
 valid_users = {
     "VREYES": "Reyes Escorsia Victor Manuel",
@@ -19,11 +19,15 @@ valid_users = {
     "MGARCIA": "Garcia Vazquez Mariana Aketzalli"
 }
 
-# Asegurarnos de que exista la clave 'user_code' en session_state
+# Aseguramos que exista la clave user_code en session_state
 if "user_code" not in st.session_state:
     st.session_state["user_code"] = None
 
 def show_login():
+    """
+    Muestra la pantalla de login. Si el usuario ingresa un código válido,
+    se guarda en st.session_state.user_code y se hace un intento de refrescar la app.
+    """
     st.title("🔥 Daily Huddle - Login")
     st.write("Ingresa tu código de usuario (Ejemplo: CNAPOLES para Christopher Napoles)")
     user_input = st.text_input("Código de usuario:", max_chars=20)
@@ -32,20 +36,27 @@ def show_login():
         if user_input in valid_users:
             st.session_state.user_code = user_input
             st.success(f"¡Bienvenido, {valid_users[user_input]}!")
+            # Intentamos refrescar la app
             try:
-                st.experimental_rerun()  # Intentamos recargar la app
+                st.experimental_rerun()
             except:
                 pass
         else:
             st.error("Código de usuario inválido. Intenta nuevamente.")
 
 def show_main_app():
-    # =========== Encabezado con el nombre del usuario ============
-    user_code = st.session_state.user_code
+    """
+    Lógica principal de la app: Muestra menús y secciones
+    (Attendance, Recognition, Escalations, Top 3, Action Board, Communications, Calendar)
+    filtrando la información por user_code.
+    """
+    user_code = st.session_state["user_code"]  # El código del usuario logueado
     st.title("🔥 Daily Huddle")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
 
-    # =========== Temporizador ============
+    # =============================
+    # Temporizador
+    # =============================
     if "timer_started" not in st.session_state:
         st.session_state.timer_started = False
 
@@ -55,8 +66,9 @@ def show_main_app():
 
     if st.session_state.timer_started:
         countdown_html = """
-        <div id="countdown" style="position: fixed; top: 10px; right: 10px; background-color: #f0f0f0; 
-             padding: 10px; border-radius: 5px; font-size: 18px; z-index:1000;">
+        <div id="countdown" style="position: fixed; top: 10px; right: 10px; 
+             background-color: #f0f0f0; padding: 10px; border-radius: 5px; 
+             font-size: 18px; z-index:1000;">
           30:00
         </div>
         <script>
@@ -77,7 +89,9 @@ def show_main_app():
         """
         components.html(countdown_html, height=70)
 
-    # =========== Inicializar Firebase ============
+    # =============================
+    # Inicializar Firebase
+    # =============================
     firebase_config = st.secrets["firebase"]
     if not isinstance(firebase_config, dict):
         firebase_config = firebase_config.to_dict()
@@ -92,7 +106,9 @@ def show_main_app():
 
     db = firestore.client()
 
-    # =========== Funciones auxiliares ============
+    # =============================
+    # Funciones auxiliares
+    # =============================
     def get_status(selected, custom):
         return custom.strip() if custom and custom.strip() != "" else selected
 
@@ -102,14 +118,16 @@ def show_main_app():
         "Completado": "green"
     }
 
-    # =========== Menú principal ============
+    # =============================
+    # Menú principal
+    # =============================
     st.markdown("---")
     menu = ["Overview", "Attendance", "Recognition", "Escalations", "Top 3", "Action Board", "Communications", "Calendar"]
     choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu)
 
-    # ----------------
+    # -----------
     # Overview
-    # ----------------
+    # -----------
     if choice == "Overview":
         st.subheader("📋 ¿Qué es el Daily Huddle?")
         st.write("""
@@ -118,9 +136,9 @@ def show_main_app():
         \n👈 Usa la barra lateral para navegar entre las diferentes secciones.
         """)
 
-    # ----------------
+    # -----------
     # Attendance
-    # ----------------
+    # -----------
     elif choice == "Attendance":
         st.subheader("📝 Registro de Asistencia")
         today_date = datetime.now().strftime("%Y-%m-%d")
@@ -169,9 +187,9 @@ def show_main_app():
             })
             st.success("Asistencia registrada correctamente.")
 
-    # ----------------
+    # -----------
     # Recognition
-    # ----------------
+    # -----------
     elif choice == "Recognition":
         st.subheader("🎉 Recognition")
         st.write("Envía un reconocimiento a un compañero.")
@@ -190,9 +208,9 @@ def show_main_app():
             })
             st.success("Reconocimiento enviado.")
 
-    # ----------------
+    # -----------
     # Escalations
-    # ----------------
+    # -----------
     elif choice == "Escalations":
         st.subheader("⚠️ Escalations")
         st.write("Registra una escalación con la información requerida.")
@@ -213,9 +231,9 @@ def show_main_app():
             })
             st.success("Escalación registrada.")
 
-    # ----------------
-    # Top 3
-    # ----------------
+    # -----------
+    # Top 3 (con edición de status)
+    # -----------
     elif choice == "Top 3":
         st.subheader("📌 Top 3 Prioridades - Resumen")
         top3_container = st.empty()
@@ -308,9 +326,9 @@ def show_main_app():
                 except:
                     pass
 
-    # ----------------
-    # Action Board
-    # ----------------
+    # -----------
+    # Action Board (con edición de status)
+    # -----------
     elif choice == "Action Board":
         st.subheader("✅ Acciones y Seguimiento - Resumen")
         action_container = st.empty()
@@ -403,9 +421,9 @@ def show_main_app():
                 except:
                     pass
 
-    # ----------------
+    # -----------
     # Communications
-    # ----------------
+    # -----------
     elif choice == "Communications":
         st.subheader("📢 Mensajes Importantes")
         mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
@@ -417,9 +435,9 @@ def show_main_app():
             })
             st.success("Mensaje enviado.")
 
-    # ----------------
+    # -----------
     # Calendar
-    # ----------------
+    # -----------
     elif choice == "Calendar":
         st.subheader("📅 Calendario")
         cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
@@ -482,13 +500,16 @@ def show_main_app():
             components.html(calendar_html, height=600, scrolling=True)
 
 # ================================
-# Si user_code is not None, ejecuta show_main_app
+# Control principal: login vs app
 # ================================
-if st.session_state.user_code is not None:
+if st.session_state["user_code"] is None:
+    show_login()
+    st.stop()
+else:
     show_main_app()
 
 # ================================
-# Lista de usuarios y códigos
+# Lista de usuarios (para referencia)
 # ================================
 # 1. VREYES     -> Reyes Escorsia Victor Manuel
 # 2. RCRUZ      -> Cruz Madariaga Rodrigo
