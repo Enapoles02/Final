@@ -56,19 +56,30 @@ except Exception as e:
 db = firestore.client()
 
 # -------------------------------------------------------------------
+# Opciones de status con colores/íconos
+# -------------------------------------------------------------------
+status_options = {
+    "Pendiente": "🔴 Pendiente",
+    "En proceso": "🟡 En proceso",
+    "Completado": "🟢 Completado"
+}
+
+# -------------------------------------------------------------------
 # Interfaz de la aplicación
 # -------------------------------------------------------------------
 st.title("🔥 Daily Huddle - Enrique 🔥")
 menu = ["Overview", "Attendance", "Top 3", "Action Board", "Communications", "Calendar"]
 choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu)
 
+# ---------- OVERVIEW ----------
 if choice == "Overview":
     st.subheader("📋 ¿Qué es el Daily Huddle?")
     st.write("""
-    Bienvenido a tu Daily Huddle. Aquí podrás registrar tu asistencia, prioridades, acciones pendientes y eventos importantes del equipo.
+    Bienvenido a tu Daily Huddle. Aquí podrás registrar tu asistencia, prioridades, acciones pendientes, reconocimientos, escalaciones y eventos importantes del equipo.
     \n👈 Usa la barra lateral para navegar entre las diferentes secciones.
     """)
 
+# ---------- ATTENDANCE ----------
 elif choice == "Attendance":
     st.subheader("📝 Registro de Asistencia")
     st.write("💡 ¿Cómo te sientes hoy?")
@@ -91,10 +102,11 @@ elif choice == "Attendance":
         })
         st.success("Asistencia registrada correctamente.")
 
+# ---------- TOP 3 ----------
 elif choice == "Top 3":
     st.subheader("📌 Top 3 Prioridades - Resumen")
     
-    # Mostrar resumen de tareas almacenadas en la colección "top3" para el usuario "Enrique"
+    # Mostrar resumen de tareas en Top 3 para el usuario "Enrique"
     tasks = list(db.collection("top3").where("usuario", "==", "Enrique").stream())
     if tasks:
         for task in tasks:
@@ -102,6 +114,12 @@ elif choice == "Top 3":
             st.markdown(f"**{task_data.get('descripcion','')}**")
             st.write(f"Inicio: {task_data.get('fecha_inicio','')}  |  Compromiso: {task_data.get('fecha_compromiso','')}  |  Real: {task_data.get('fecha_real','')}")
             st.write(f"Status: {task_data.get('status','')}")
+            st.write(f"Nivel de energía: {task_data.get('energia','')}")
+            if task_data.get("reconocimiento"):
+                st.info(f"Reconocimiento: {task_data.get('reconocimiento')}")
+            if task_data.get("escalacion"):
+                escal = task_data.get("escalacion")
+                st.warning(f"Escalación -> Quien: {escal.get('quien','')}, Por: {escal.get('por','')}, Para: {escal.get('para','')}, Con: {escal.get('con','')}")
             if st.button("🗑️ Eliminar", key=f"delete_top3_{task.id}"):
                 db.collection("top3").document(task.id).delete()
                 st.success("Tarea eliminada. Recarga la página para ver el cambio.")
@@ -112,7 +130,7 @@ elif choice == "Top 3":
     else:
         st.info("No hay tareas de Top 3 registradas.")
     
-    # Botón para mostrar el formulario de agregar tarea
+    # Botón para mostrar formulario de agregar tarea
     if st.button("➕ Agregar Tarea de Top 3"):
         st.session_state.show_top3_form = True
     if st.session_state.get("show_top3_form"):
@@ -121,17 +139,35 @@ elif choice == "Top 3":
             p = st.text_input("Descripción")
             ti = st.date_input("Fecha de inicio")
             tc = st.date_input("Fecha compromiso")
-            s = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"])
+            s = st.selectbox("Status", list(status_options.keys()))
+            energia = st.slider("Nivel de energía (0 a 5)", 0, 5, 3)
+            reconocimiento = st.text_area("Mensaje de reconocimiento (opcional)")
+            st.markdown("#### Datos de Escalación (opcional)")
+            escal_quien = st.text_input("Quien escala")
+            escal_por = st.text_input("Por qué")
+            escal_para = st.text_input("Para quién")
+            escal_con = st.text_input("Con quién se tiene el tema")
             submit_new_top3 = st.form_submit_button("Guardar tarea")
         if submit_new_top3:
             fecha_real = datetime.now().strftime("%Y-%m-%d") if s == "Completado" else ""
+            escalacion = None
+            if escal_quien or escal_por or escal_para or escal_con:
+                escalacion = {
+                    "quien": escal_quien,
+                    "por": escal_por,
+                    "para": escal_para,
+                    "con": escal_con
+                }
             db.collection("top3").add({
                 "usuario": "Enrique",
                 "descripcion": p,
                 "fecha_inicio": ti.strftime("%Y-%m-%d"),
                 "fecha_compromiso": tc.strftime("%Y-%m-%d"),
                 "fecha_real": fecha_real,
-                "status": s,
+                "status": status_options[s],
+                "energia": energia,
+                "reconocimiento": reconocimiento,
+                "escalacion": escalacion,
                 "timestamp": datetime.now()
             })
             st.success("Tarea de Top 3 guardada.")
@@ -141,10 +177,11 @@ elif choice == "Top 3":
             except Exception:
                 pass
 
+# ---------- ACTION BOARD ----------
 elif choice == "Action Board":
     st.subheader("✅ Acciones y Seguimiento - Resumen")
     
-    # Mostrar resumen de acciones almacenadas en la colección "actions" para el usuario "Enrique"
+    # Mostrar resumen de acciones en Action Board para el usuario "Enrique"
     actions = list(db.collection("actions").where("usuario", "==", "Enrique").stream())
     if actions:
         for action in actions:
@@ -152,6 +189,12 @@ elif choice == "Action Board":
             st.markdown(f"**{act_data.get('accion','')}**")
             st.write(f"Inicio: {act_data.get('fecha_inicio','')}  |  Compromiso: {act_data.get('fecha_compromiso','')}  |  Real: {act_data.get('fecha_real','')}")
             st.write(f"Status: {act_data.get('status','')}")
+            st.write(f"Nivel de energía: {act_data.get('energia','')}")
+            if act_data.get("reconocimiento"):
+                st.info(f"Reconocimiento: {act_data.get('reconocimiento')}")
+            if act_data.get("escalacion"):
+                escal = act_data.get("escalacion")
+                st.warning(f"Escalación -> Quien: {escal.get('quien','')}, Por: {escal.get('por','')}, Para: {escal.get('para','')}, Con: {escal.get('con','')}")
             if st.button("🗑️ Eliminar", key=f"delete_action_{action.id}"):
                 db.collection("actions").document(action.id).delete()
                 st.success("Acción eliminada. Recarga la página para ver el cambio.")
@@ -162,7 +205,7 @@ elif choice == "Action Board":
     else:
         st.info("No hay acciones registradas.")
     
-    # Botón para mostrar el formulario de agregar acción
+    # Botón para mostrar formulario de agregar acción
     if st.button("➕ Agregar Acción"):
         st.session_state.show_action_form = True
     if st.session_state.get("show_action_form"):
@@ -171,17 +214,35 @@ elif choice == "Action Board":
             accion = st.text_input("Descripción de la acción")
             ti = st.date_input("Fecha de inicio")
             tc = st.date_input("Fecha compromiso")
-            status = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"])
+            status = st.selectbox("Status", list(status_options.keys()))
+            energia = st.slider("Nivel de energía (0 a 5)", 0, 5, 3)
+            reconocimiento = st.text_area("Mensaje de reconocimiento (opcional)")
+            st.markdown("#### Datos de Escalación (opcional)")
+            escal_quien = st.text_input("Quien escala")
+            escal_por = st.text_input("Por qué")
+            escal_para = st.text_input("Para quién")
+            escal_con = st.text_input("Con quién se tiene el tema")
             submit_new_action = st.form_submit_button("Guardar acción")
         if submit_new_action:
             fecha_real = datetime.now().strftime("%Y-%m-%d") if status == "Completado" else ""
+            escalacion = None
+            if escal_quien or escal_por or escal_para or escal_con:
+                escalacion = {
+                    "quien": escal_quien,
+                    "por": escal_por,
+                    "para": escal_para,
+                    "con": escal_con
+                }
             db.collection("actions").add({
                 "usuario": "Enrique",
                 "accion": accion,
                 "fecha_inicio": ti.strftime("%Y-%m-%d"),
                 "fecha_compromiso": tc.strftime("%Y-%m-%d"),
                 "fecha_real": fecha_real,
-                "status": status,
+                "status": status_options[status],
+                "energia": energia,
+                "reconocimiento": reconocimiento,
+                "escalacion": escalacion,
                 "fecha": datetime.now().strftime("%Y-%m-%d")
             })
             st.success("Acción guardada.")
@@ -191,6 +252,7 @@ elif choice == "Action Board":
             except Exception:
                 pass
 
+# ---------- COMMUNICATIONS ----------
 elif choice == "Communications":
     st.subheader("📢 Mensajes Importantes")
     mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
@@ -202,6 +264,7 @@ elif choice == "Communications":
         })
         st.success("Mensaje enviado.")
 
+# ---------- CALENDAR ----------
 elif choice == "Calendar":
     st.subheader("📅 Calendario")
     cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
@@ -235,31 +298,4 @@ elif choice == "Calendar":
         <head>
           <meta charset='utf-8' />
           <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
-          <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
-          <style>
-            body {{
-              margin: 0;
-              padding: 0;
-            }}
-            #calendar {{
-              max-width: 900px;
-              margin: 40px auto;
-            }}
-          </style>
-        </head>
-        <body>
-          <div id='calendar'></div>
-          <script>
-            document.addEventListener('DOMContentLoaded', function() {{
-              var calendarEl = document.getElementById('calendar');
-              var calendar = new FullCalendar.Calendar(calendarEl, {{
-                initialView: 'dayGridMonth',
-                events: {events_json}
-              }});
-              calendar.render();
-            }});
-          </script>
-        </body>
-        </html>
-        """
-        components.html(calendar_html, height=600, scrolling=True)
+         
