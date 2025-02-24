@@ -4,34 +4,43 @@ from firebase_admin import credentials, firestore
 from datetime import datetime
 import streamlit.components.v1 as components
 
-# ----------------------------
-# Temporizador de 30 minutos
-# ----------------------------
-countdown_html = """
-<div id="countdown" style="position: fixed; top: 10px; right: 10px; background-color: #f0f0f0; padding: 10px; border-radius: 5px; font-size: 18px; z-index:1000;">
-  30:00
-</div>
-<script>
-var timeLeft = 30 * 60; // 30 minutos en segundos
-function updateTimer() {
-    var minutes = Math.floor(timeLeft / 60);
-    var seconds = timeLeft % 60;
-    if (seconds < 10) { seconds = "0" + seconds; }
-    document.getElementById("countdown").innerHTML = minutes + ":" + seconds;
-    if(timeLeft > 0) {
-        timeLeft--;
-    } else {
-        clearInterval(timerId);
-    }
-}
-var timerId = setInterval(updateTimer, 1000);
-</script>
-"""
-components.html(countdown_html, height=70)
+# --------------------------------------------------
+# Botón para iniciar el temporizador de 30 minutos
+# --------------------------------------------------
+if "timer_started" not in st.session_state:
+    st.session_state.timer_started = False
 
-# ----------------------------
+if not st.session_state.timer_started:
+    if st.button("Start Timer"):
+        st.session_state.timer_started = True
+
+# Si el timer ya inició, se inyecta el código HTML/JS para mostrarlo en la esquina superior derecha
+if st.session_state.timer_started:
+    countdown_html = """
+    <div id="countdown" style="position: fixed; top: 10px; right: 10px; background-color: #f0f0f0; padding: 10px; border-radius: 5px; font-size: 18px; z-index:1000;">
+      30:00
+    </div>
+    <script>
+    var timeLeft = 30 * 60;
+    function updateTimer() {
+        var minutes = Math.floor(timeLeft / 60);
+        var seconds = timeLeft % 60;
+        if (seconds < 10) { seconds = "0" + seconds; }
+        document.getElementById("countdown").innerHTML = minutes + ":" + seconds;
+        if(timeLeft > 0) {
+            timeLeft--;
+        } else {
+            clearInterval(timerId);
+        }
+    }
+    var timerId = setInterval(updateTimer, 1000);
+    </script>
+    """
+    components.html(countdown_html, height=70)
+
+# --------------------------------------------------
 # Inicialización de Firebase
-# ----------------------------
+# --------------------------------------------------
 firebase_config = st.secrets["firebase"]
 if not isinstance(firebase_config, dict):
     firebase_config = firebase_config.to_dict()
@@ -46,9 +55,9 @@ except Exception as e:
 
 db = firestore.client()
 
-# ----------------------------
+# --------------------------------------------------
 # Interfaz de la aplicación
-# ----------------------------
+# --------------------------------------------------
 st.title("🔥 Daily Huddle - Enrique 🔥")
 menu = ["Overview", "Attendance", "Top 3", "Action Board", "Communications", "Calendar"]
 choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu)
@@ -85,65 +94,73 @@ elif choice == "Attendance":
 
 elif choice == "Top 3":
     st.subheader("📌 Top 3 Prioridades")
-    st.write("Ingresa las tres prioridades con sus fechas y status correspondientes.")
+    st.write("Ingresa las tres prioridades. Completa la descripción, fecha de inicio y compromiso, y selecciona el status. Si el status es 'Completado', se asigna automáticamente la fecha real.")
     
-    # Prioridad 1
-    st.write("### Prioridad 1")
-    prioridad1 = st.text_input("Descripción", key="p1")
-    fecha_inicio1 = st.date_input("Fecha de inicio", key="ti1")
-    fecha_compromiso1 = st.date_input("Fecha compromiso", key="tc1")
-    fecha_real1 = st.date_input("Fecha real", key="tr1")
-    status1 = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="s1")
+    with st.form("top3_form"):
+        # Prioridad 1
+        st.markdown("**Prioridad 1**")
+        p1 = st.text_input("Descripción", key="p1")
+        ti1 = st.date_input("Fecha de inicio", key="ti1")
+        tc1 = st.date_input("Fecha compromiso", key="tc1")
+        s1 = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="s1")
+        
+        # Prioridad 2
+        st.markdown("**Prioridad 2**")
+        p2 = st.text_input("Descripción", key="p2")
+        ti2 = st.date_input("Fecha de inicio", key="ti2")
+        tc2 = st.date_input("Fecha compromiso", key="tc2")
+        s2 = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="s2")
+        
+        # Prioridad 3
+        st.markdown("**Prioridad 3**")
+        p3 = st.text_input("Descripción", key="p3")
+        ti3 = st.date_input("Fecha de inicio", key="ti3")
+        tc3 = st.date_input("Fecha compromiso", key="tc3")
+        s3 = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="s3")
+        
+        submit_top3 = st.form_submit_button("Guardar prioridades")
     
-    # Prioridad 2
-    st.write("### Prioridad 2")
-    prioridad2 = st.text_input("Descripción", key="p2")
-    fecha_inicio2 = st.date_input("Fecha de inicio", key="ti2")
-    fecha_compromiso2 = st.date_input("Fecha compromiso", key="tc2")
-    fecha_real2 = st.date_input("Fecha real", key="tr2")
-    status2 = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="s2")
-    
-    # Prioridad 3
-    st.write("### Prioridad 3")
-    prioridad3 = st.text_input("Descripción", key="p3")
-    fecha_inicio3 = st.date_input("Fecha de inicio", key="ti3")
-    fecha_compromiso3 = st.date_input("Fecha compromiso", key="tc3")
-    fecha_real3 = st.date_input("Fecha real", key="tr3")
-    status3 = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="s3")
-    
-    if st.button("📌 Guardar prioridades"):
+    if submit_top3:
+        # Para cada prioridad, si el status es 'Completado', asignamos la fecha real actual; de lo contrario, dejamos vacío.
+        prioridades = []
+        for desc, ti, tc, s in [(p1, ti1, tc1, s1), (p2, ti2, tc2, s2), (p3, ti3, tc3, s3)]:
+            fecha_real = datetime.now().strftime("%Y-%m-%d") if s == "Completado" else ""
+            prioridades.append({
+                "descripcion": desc,
+                "fecha_inicio": ti.strftime("%Y-%m-%d"),
+                "fecha_compromiso": tc.strftime("%Y-%m-%d"),
+                "fecha_real": fecha_real,
+                "status": s
+            })
         doc_ref = db.collection("top3").document("Enrique")
         doc_ref.set({
             "fecha": datetime.now().strftime("%Y-%m-%d"),
-            "prioridades": [
-                {"descripcion": prioridad1, "fecha_inicio": fecha_inicio1.strftime("%Y-%m-%d"), 
-                 "fecha_compromiso": fecha_compromiso1.strftime("%Y-%m-%d"), "fecha_real": fecha_real1.strftime("%Y-%m-%d"), "status": status1},
-                {"descripcion": prioridad2, "fecha_inicio": fecha_inicio2.strftime("%Y-%m-%d"), 
-                 "fecha_compromiso": fecha_compromiso2.strftime("%Y-%m-%d"), "fecha_real": fecha_real2.strftime("%Y-%m-%d"), "status": status2},
-                {"descripcion": prioridad3, "fecha_inicio": fecha_inicio3.strftime("%Y-%m-%d"), 
-                 "fecha_compromiso": fecha_compromiso3.strftime("%Y-%m-%d"), "fecha_real": fecha_real3.strftime("%Y-%m-%d"), "status": status3}
-            ]
+            "prioridades": prioridades
         })
         st.success("Prioridades guardadas.")
 
 elif choice == "Action Board":
     st.subheader("✅ Acciones y Seguimiento")
-    accion = st.text_input("✍️ Describe la acción", key="action_desc")
-    fecha_inicio_a = st.date_input("Fecha de inicio", key="action_ti")
-    fecha_compromiso_a = st.date_input("Fecha compromiso", key="action_tc")
-    fecha_real_a = st.date_input("Fecha real", key="action_tr")
-    status_a = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="action_status")
+    st.write("Agrega una nueva acción. Completa la descripción, fecha de inicio y compromiso, y selecciona el status. Si el status es 'Completado', se asigna automáticamente la fecha real.")
     
-    if st.button("✅ Guardar acción"):
+    with st.form("action_board_form"):
+        accion = st.text_input("Descripción de la acción", key="action_desc")
+        ti = st.date_input("Fecha de inicio", key="action_ti")
+        tc = st.date_input("Fecha compromiso", key="action_tc")
+        status = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="action_status")
+        submit_action = st.form_submit_button("Guardar acción")
+    
+    if submit_action:
+        fecha_real = datetime.now().strftime("%Y-%m-%d") if status == "Completado" else ""
         doc_ref = db.collection("actions").document()
         doc_ref.set({
             "usuario": "Enrique",
             "fecha": datetime.now().strftime("%Y-%m-%d"),
             "accion": accion,
-            "fecha_inicio": fecha_inicio_a.strftime("%Y-%m-%d"),
-            "fecha_compromiso": fecha_compromiso_a.strftime("%Y-%m-%d"),
-            "fecha_real": fecha_real_a.strftime("%Y-%m-%d"),
-            "status": status_a
+            "fecha_inicio": ti.strftime("%Y-%m-%d"),
+            "fecha_compromiso": tc.strftime("%Y-%m-%d"),
+            "fecha_real": fecha_real,
+            "status": status
         })
         st.success("Acción guardada.")
 
