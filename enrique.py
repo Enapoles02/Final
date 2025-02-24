@@ -1,23 +1,16 @@
 import streamlit as st
 import firebase_admin
 from firebase_admin import credentials, firestore
-import ast
 
-# Verificar el contenido y tipo de st.secrets["firebase"]
+# Convertir el AttrDict a un dict normal
 firebase_config = st.secrets["firebase"]
-st.write("Tipo de st.secrets['firebase']:", type(firebase_config))
-st.write("Contenido de st.secrets['firebase']:", firebase_config)
+if not isinstance(firebase_config, dict):
+    firebase_config = firebase_config.to_dict()
 
-# Si es una cadena, convertirla a diccionario usando ast.literal_eval
-if isinstance(firebase_config, str):
-    try:
-        firebase_config = ast.literal_eval(firebase_config)
-        st.write("Después de la conversión, tipo:", type(firebase_config))
-    except Exception as e:
-        st.error("Error al convertir la configuración a diccionario: " + str(e))
-        raise
+st.write("Tipo de firebase_config:", type(firebase_config))
+st.write("Contenido de firebase_config:", firebase_config)
 
-# Inicializar Firebase con la configuración verificada
+# Inicializar Firebase
 try:
     cred = credentials.Certificate(firebase_config)
     if not firebase_admin._apps:
@@ -27,7 +20,7 @@ except Exception as e:
     st.error("Error al inicializar Firebase: " + str(e))
     raise
 
-# Crear el cliente de Firestore
+# Crear cliente de Firestore
 db = firestore.client()
 
 # Resto de la aplicación
@@ -42,5 +35,3 @@ if choice == "Overview":
     \n👈 Usa la barra lateral para navegar entre las diferentes secciones.
     """)
     st.success("✅ Firebase se conectó correctamente.")
-
-# Puedes continuar con el resto de tus pestañas...
