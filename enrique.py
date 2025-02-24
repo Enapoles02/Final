@@ -105,7 +105,10 @@ elif choice == "Top 3":
             if st.button("🗑️ Eliminar", key=f"delete_top3_{task.id}"):
                 db.collection("top3").document(task.id).delete()
                 st.success("Tarea eliminada. Recarga la página para ver el cambio.")
-                st.experimental_rerun()
+                try:
+                    st.experimental_rerun()
+                except Exception:
+                    pass
     else:
         st.info("No hay tareas de Top 3 registradas.")
     
@@ -133,7 +136,10 @@ elif choice == "Top 3":
             })
             st.success("Tarea de Top 3 guardada.")
             st.session_state.show_top3_form = False
-            st.experimental_rerun()
+            try:
+                st.experimental_rerun()
+            except Exception:
+                pass
 
 elif choice == "Action Board":
     st.subheader("✅ Acciones y Seguimiento - Resumen")
@@ -149,7 +155,10 @@ elif choice == "Action Board":
             if st.button("🗑️ Eliminar", key=f"delete_action_{action.id}"):
                 db.collection("actions").document(action.id).delete()
                 st.success("Acción eliminada. Recarga la página para ver el cambio.")
-                st.experimental_rerun()
+                try:
+                    st.experimental_rerun()
+                except Exception:
+                    pass
     else:
         st.info("No hay acciones registradas.")
     
@@ -177,7 +186,10 @@ elif choice == "Action Board":
             })
             st.success("Acción guardada.")
             st.session_state.show_action_form = False
-            st.experimental_rerun()
+            try:
+                st.experimental_rerun()
+            except Exception:
+                pass
 
 elif choice == "Communications":
     st.subheader("📢 Mensajes Importantes")
