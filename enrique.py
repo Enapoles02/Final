@@ -116,8 +116,8 @@ elif choice == "Attendance":
     selected_feeling = st.radio("Selecciona tu estado de ánimo:", list(feelings.keys()))
     health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
     
-    # Pila de energía
     st.write("Nivel de energía:")
+    # Pila visual dinámica: se llena según el nivel seleccionado
     energy_options = ["Nivel 1", "Nivel 2", "Nivel 3", "Nivel 4", "Nivel 5"]
     energy_level = st.radio("Selecciona tu nivel de energía:", options=energy_options, horizontal=True)
     level_mapping = {
@@ -128,7 +128,6 @@ elif choice == "Attendance":
         "Nivel 5": 100
     }
     fill_percent = level_mapping[energy_level]
-    
     battery_html = f"""
     <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px; position: relative;">
       <div style="position: absolute; bottom: 0; width: 100%; height: {fill_percent}%; background-color: #00ff00;"></div>
@@ -214,20 +213,16 @@ elif choice == "Top 3":
             new_status = st.selectbox(
                 "Editar status",
                 ["Pendiente", "En proceso", "Completado"],
-                index=["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente","En proceso","Completado"] else 0,
+                index=["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0,
                 key=f"select_top3_{task_id}"
             )
             custom_status = st.text_input("Status personalizado (opcional)", key=f"custom_top3_{task_id}")
             
             if st.button("Actualizar Status", key=f"update_top3_{task_id}"):
                 final_status = get_status(new_status, custom_status)
-                
-                # Si el status es "Completado", se asigna la fecha real si no existe; 
-                # o la actualizamos si prefieres sobrescribir siempre.
                 if final_status.lower() == "completado":
                     fecha_real = datetime.now().strftime("%Y-%m-%d")
                 else:
-                    # Conservar fecha_real previa o dejarla vacía, tú decides
                     fecha_real = task_data.get("fecha_real", "")
                 
                 db.collection("top3").document(task_id).update({
@@ -235,22 +230,25 @@ elif choice == "Top 3":
                     "fecha_real": fecha_real
                 })
                 st.success("Status actualizado.")
-                st.experimental_rerun()
+                try:
+                    st.experimental_rerun()
+                except Exception:
+                    pass
             
-            # Botón para eliminar
             if st.button("🗑️ Eliminar", key=f"delete_top3_{task_id}"):
                 db.collection("top3").document(task_id).delete()
                 st.success("Tarea eliminada.")
-                st.experimental_rerun()
+                try:
+                    st.experimental_rerun()
+                except Exception:
+                    pass
             
             st.markdown("---")
     else:
         st.info("No hay tareas de Top 3 registradas.")
     
-    # Botón para crear nueva tarea
     if st.button("➕ Agregar Tarea de Top 3"):
         st.session_state.show_top3_form = True
-    
     if st.session_state.get("show_top3_form"):
         with st.form("top3_add_form"):
             st.markdown("### Nueva Tarea - Top 3")
@@ -260,7 +258,6 @@ elif choice == "Top 3":
             s = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="top3_status")
             custom_status = st.text_input("Status personalizado (opcional)", key="custom_status_top3")
             submit_new_top3 = st.form_submit_button("Guardar tarea")
-        
         if submit_new_top3:
             final_status = get_status(s, custom_status)
             fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
@@ -276,7 +273,10 @@ elif choice == "Top 3":
             db.collection("top3").add(data)
             st.success("Tarea de Top 3 guardada.")
             st.session_state.show_top3_form = False
-            st.experimental_rerun()
+            try:
+                st.experimental_rerun()
+            except Exception:
+                pass
 
 # ----------------
 # Action Board: Acciones y seguimiento (con edición de status)
@@ -298,11 +298,10 @@ elif choice == "Action Board":
             st.markdown(f"**Status actual:** <span style='color: {color};'>{status_val}</span>", 
                         unsafe_allow_html=True)
             
-            # Editar status
             new_status = st.selectbox(
                 "Editar status",
                 ["Pendiente", "En proceso", "Completado"],
-                index=["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente","En proceso","Completado"] else 0,
+                index=["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0,
                 key=f"select_action_{action_id}"
             )
             custom_status = st.text_input("Status personalizado (opcional)", key=f"custom_action_{action_id}")
@@ -319,13 +318,18 @@ elif choice == "Action Board":
                     "fecha_real": fecha_real
                 })
                 st.success("Status actualizado.")
-                st.experimental_rerun()
+                try:
+                    st.experimental_rerun()
+                except Exception:
+                    pass
             
-            # Eliminar
             if st.button("🗑️ Eliminar", key=f"delete_action_{action_id}"):
                 db.collection("actions").document(action_id).delete()
                 st.success("Acción eliminada.")
-                st.experimental_rerun()
+                try:
+                    st.experimental_rerun()
+                except Exception:
+                    pass
             
             st.markdown("---")
     else:
@@ -343,7 +347,6 @@ elif choice == "Action Board":
             s = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="action_status")
             custom_status = st.text_input("Status personalizado (opcional)", key="custom_status_action")
             submit_new_action = st.form_submit_button("Guardar acción")
-        
         if submit_new_action:
             final_status = get_status(s, custom_status)
             fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
@@ -359,7 +362,10 @@ elif choice == "Action Board":
             db.collection("actions").add(data)
             st.success("Acción guardada.")
             st.session_state.show_action_form = False
-            st.experimental_rerun()
+            try:
+                st.experimental_rerun()
+            except Exception:
+                pass
 
 # ----------------
 # Communications
