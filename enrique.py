@@ -189,51 +189,55 @@ elif choice == "Escalations":
 # ----------------
 elif choice == "Top 3":
     st.subheader("📌 Top 3 Prioridades - Resumen")
-    tasks = list(db.collection("top3").where("usuario", "==", "Enrique").stream())
-    if tasks:
-        for task in tasks:
-            task_id = task.id
-            task_data = task.to_dict()
-            st.markdown(f"**{task_data.get('descripcion','(Sin descripción)')}**")
-            st.write(f"Inicio: {task_data.get('fecha_inicio','')} | Compromiso: {task_data.get('fecha_compromiso','')} | Real: {task_data.get('fecha_real','')}")
-            
-            status_val = task_data.get('status', '')
-            color = status_colors.get(status_val, "black")
-            st.markdown(f"**Status actual:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
-            
-            new_status = st.selectbox(
-                "Editar status",
-                ["Pendiente", "En proceso", "Completado"],
-                index=["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0,
-                key=f"select_top3_{task_id}"
-            )
-            custom_status = st.text_input("Status personalizado (opcional)", key=f"custom_top3_{task_id}")
-            if st.button("Actualizar Status", key=f"update_top3_{task_id}"):
-                final_status = get_status(new_status, custom_status)
-                if final_status.lower() == "completado":
-                    fecha_real = datetime.now().strftime("%Y-%m-%d")
-                else:
-                    fecha_real = task_data.get("fecha_real", "")
-                db.collection("top3").document(task_id).update({
-                    "status": final_status,
-                    "fecha_real": fecha_real
-                })
-                st.success("Status actualizado.")
-                try:
-                    st.experimental_rerun()
-                except Exception:
-                    pass
-            
-            if st.button("🗑️ Eliminar", key=f"delete_top3_{task_id}"):
-                db.collection("top3").document(task_id).delete()
-                st.success("Tarea eliminada.")
-                try:
-                    st.experimental_rerun()
-                except Exception:
-                    pass
+    top3_container = st.empty()
+    def load_top3():
+        tasks = list(db.collection("top3").where("usuario", "==", "Enrique").stream())
+        top3_container.empty()
+        with top3_container.container():
             st.markdown("---")
-    else:
-        st.info("No hay tareas de Top 3 registradas.")
+            if tasks:
+                for task in tasks:
+                    task_id = task.id
+                    task_data = task.to_dict()
+                    st.markdown(f"**{task_data.get('descripcion','(Sin descripción)')}**")
+                    st.write(f"Inicio: {task_data.get('fecha_inicio','')} | "
+                             f"Compromiso: {task_data.get('fecha_compromiso','')} | "
+                             f"Real: {task_data.get('fecha_real','')}")
+                    status_val = task_data.get('status', '')
+                    color = status_colors.get(status_val, "black")
+                    st.markdown(f"**Status actual:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
+                    
+                    new_status = st.selectbox(
+                        "Editar status",
+                        ["Pendiente", "En proceso", "Completado"],
+                        index=(["Pendiente", "En proceso", "Completado"].index(status_val)
+                               if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
+                        key=f"select_top3_{task_id}"
+                    )
+                    custom_status = st.text_input("Status personalizado (opcional)", key=f"custom_top3_{task_id}")
+                    
+                    if st.button("Actualizar Status", key=f"update_top3_{task_id}"):
+                        final_status = get_status(new_status, custom_status)
+                        if final_status.lower() == "completado":
+                            fecha_real = datetime.now().strftime("%Y-%m-%d")
+                        else:
+                            fecha_real = task_data.get("fecha_real", "")
+                        db.collection("top3").document(task_id).update({
+                            "status": final_status,
+                            "fecha_real": fecha_real
+                        })
+                        st.success("Status actualizado.")
+                        load_top3()
+                    
+                    if st.button("🗑️ Eliminar", key=f"delete_top3_{task_id}"):
+                        db.collection("top3").document(task_id).delete()
+                        st.success("Tarea eliminada.")
+                        load_top3()
+                    
+                    st.markdown("---")
+            else:
+                st.info("No hay tareas de Top 3 registradas.")
+    load_top3()
     
     if st.button("➕ Agregar Tarea de Top 3"):
         st.session_state.show_top3_form = True
@@ -261,61 +265,63 @@ elif choice == "Top 3":
             db.collection("top3").add(data)
             st.success("Tarea de Top 3 guardada.")
             st.session_state.show_top3_form = False
-            try:
-                st.experimental_rerun()
-            except Exception:
-                pass
+            load_top3()
 
 # ----------------
 # Action Board: Acciones y seguimiento (con edición de status)
 # ----------------
 elif choice == "Action Board":
     st.subheader("✅ Acciones y Seguimiento - Resumen")
-    actions = list(db.collection("actions").where("usuario", "==", "Enrique").stream())
-    if actions:
-        for action in actions:
-            action_id = action.id
-            act_data = action.to_dict()
-            st.markdown(f"**{act_data.get('accion','(Sin descripción)')}**")
-            st.write(f"Inicio: {act_data.get('fecha_inicio','')} | Compromiso: {act_data.get('fecha_compromiso','')} | Real: {act_data.get('fecha_real','')}")
-            
-            status_val = act_data.get('status', '')
-            color = status_colors.get(status_val, "black")
-            st.markdown(f"**Status actual:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
-            
-            new_status = st.selectbox(
-                "Editar status",
-                ["Pendiente", "En proceso", "Completado"],
-                index=["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0,
-                key=f"select_action_{action_id}"
-            )
-            custom_status = st.text_input("Status personalizado (opcional)", key=f"custom_action_{action_id}")
-            if st.button("Actualizar Status", key=f"update_action_{action_id}"):
-                final_status = get_status(new_status, custom_status)
-                if final_status.lower() == "completado":
-                    fecha_real = datetime.now().strftime("%Y-%m-%d")
-                else:
-                    fecha_real = act_data.get("fecha_real", "")
-                db.collection("actions").document(action_id).update({
-                    "status": final_status,
-                    "fecha_real": fecha_real
-                })
-                st.success("Status actualizado.")
-                try:
-                    st.experimental_rerun()
-                except Exception:
-                    pass
-            
-            if st.button("🗑️ Eliminar", key=f"delete_action_{action_id}"):
-                db.collection("actions").document(action_id).delete()
-                st.success("Acción eliminada.")
-                try:
-                    st.experimental_rerun()
-                except Exception:
-                    pass
+    action_container = st.empty()
+    def load_actions():
+        actions = list(db.collection("actions").where("usuario", "==", "Enrique").stream())
+        action_container.empty()
+        with action_container.container():
             st.markdown("---")
-    else:
-        st.info("No hay acciones registradas.")
+            if actions:
+                for action in actions:
+                    action_id = action.id
+                    act_data = action.to_dict()
+                    st.markdown(f"**{act_data.get('accion','(Sin descripción)')}**")
+                    st.write(f"Inicio: {act_data.get('fecha_inicio','')} | "
+                             f"Compromiso: {act_data.get('fecha_compromiso','')} | "
+                             f"Real: {act_data.get('fecha_real','')}")
+                    
+                    status_val = act_data.get('status', '')
+                    color = status_colors.get(status_val, "black")
+                    st.markdown(f"**Status actual:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
+                    
+                    new_status = st.selectbox(
+                        "Editar status",
+                        ["Pendiente", "En proceso", "Completado"],
+                        index=(["Pendiente", "En proceso", "Completado"].index(status_val)
+                               if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
+                        key=f"select_action_{action_id}"
+                    )
+                    custom_status = st.text_input("Status personalizado (opcional)", key=f"custom_action_{action_id}")
+                    
+                    if st.button("Actualizar Status", key=f"update_action_{action_id}"):
+                        final_status = get_status(new_status, custom_status)
+                        if final_status.lower() == "completado":
+                            fecha_real = datetime.now().strftime("%Y-%m-%d")
+                        else:
+                            fecha_real = act_data.get("fecha_real", "")
+                        db.collection("actions").document(action_id).update({
+                            "status": final_status,
+                            "fecha_real": fecha_real
+                        })
+                        st.success("Status actualizado.")
+                        load_actions()
+                    
+                    if st.button("🗑️ Eliminar", key=f"delete_action_{action_id}"):
+                        db.collection("actions").document(action_id).delete()
+                        st.success("Acción eliminada.")
+                        load_actions()
+                    
+                    st.markdown("---")
+            else:
+                st.info("No hay acciones registradas.")
+    load_actions()
     
     if st.button("➕ Agregar Acción"):
         st.session_state.show_action_form = True
@@ -343,10 +349,7 @@ elif choice == "Action Board":
             db.collection("actions").add(data)
             st.success("Acción guardada.")
             st.session_state.show_action_form = False
-            try:
-                st.experimental_rerun()
-            except Exception:
-                pass
+            load_actions()
 
 # ----------------
 # Communications
