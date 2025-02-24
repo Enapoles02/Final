@@ -36,7 +36,7 @@ def show_login():
             st.session_state.user_code = user_input
             st.success(f"¡Bienvenido, {valid_users[user_input]}!")
             try:
-                st.experimental_rerun()  # Intentamos recargar la app
+                st.experimental_rerun()
             except Exception:
                 pass
         else:
@@ -54,7 +54,7 @@ def show_main_app():
     st.title("🔥 Daily Huddle")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
-    # --- Botón Start Timer: Solo lo ve el TeamLead o quien tenga asignado el rol Timekeeper ---
+    # --- Botón Start Timer: Solo para TL o usuario con rol Timekeeper ---
     can_start_timer = False
     if user_code == "ALECCION":
         can_start_timer = True
@@ -115,7 +115,7 @@ def show_main_app():
     # --- Menú principal ---
     st.markdown("---")
     main_menu = ["Overview", "Attendance", "Recognition", "Escalations", "Top 3", "Action Board", "Todas las Tareas", "Communications", "Calendar", "Roles", "Compliance"]
-    # Para usuarios que no son TeamLead, ocultamos "Todas las Tareas", "Roles" y "Compliance" (salvo si es Coach, ver Compliance)
+    # Para usuarios que no son TL, ocultamos "Todas las Tareas", "Roles" y "Compliance" (salvo que sean Coach para Compliance)
     if user_code != "ALECCION":
         main_menu = [item for item in main_menu if item not in ["Todas las Tareas", "Roles", "Compliance"]]
     choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", main_menu)
@@ -192,22 +192,48 @@ def show_main_app():
     elif choice == "Escalations":
         st.subheader("⚠️ Escalations")
         st.write("Registra una escalación con la información requerida.")
+        # El escalador se asigna automáticamente (usuario activo)
+        escalador = user_code
         with st.form("escalation_form"):
-            quien_escala = st.text_input("¿Quién escala?")
-            por_que = st.text_area("¿Por qué?")
-            para_quien = st.text_input("¿Para quién?")
-            con_quien = st.text_input("¿Con quién se tiene el tema?")
+            razon = st.text_area("Razón")
+            para_quien = st.selectbox("¿Para quién?", ["Miriam Sanchez", "Guillermo mayoral"])
+            # Para "Con quién", se permite seleccionar de entre todos (excepto el escalador)
+            opciones_con = [code for code in valid_users if code != escalador]
+            con_quien = st.multiselect("¿Con quién se tiene el tema?", options=opciones_con, format_func=lambda x: valid_users[x])
             submit_escalation = st.form_submit_button("Enviar escalación")
         if submit_escalation:
-            db.collection("escalations").add({
-                "usuario": user_code,
-                "quien_escala": quien_escala,
-                "por_que": por_que,
-                "para_quien": para_quien,
+            mapping_para = {"Miriam Sanchez": "MSANCHEZ", "Guillermo mayoral": "GMAJORAL"}
+            involucrados = [escalador, mapping_para.get(para_quien, para_quien)]
+            if con_quien:
+                involucrados.extend(con_quien)
+            # Eliminar duplicados
+            involucrados = list(set(involucrados))
+            escalacion_data = {
+                "escalador": escalador,
+                "razon": razon,
+                "para_quien": mapping_para.get(para_quien, para_quien),
                 "con_quien": con_quien,
+                "involucrados": involucrados,
                 "fecha": datetime.now().strftime("%Y-%m-%d")
-            })
+            }
+            db.collection("escalations").add(escalacion_data)
             st.success("Escalación registrada.")
+            st.warning(f"Los usuarios involucrados: {', '.join(involucrados)} han sido notificados.")
+        
+        st.markdown("### Escalaciones en las que estás involucrado")
+        escalations = list(db.collection("escalations").stream())
+        count = 0
+        for esc in escalations:
+            esc_data = esc.to_dict()
+            if user_code in esc_data.get("involucrados", []):
+                count += 1
+                st.markdown(f"**Escalación:** {esc_data.get('razon','(Sin razón)')}")
+                st.write(f"Escalador: {esc_data.get('escalador','')}, Para quién: {esc_data.get('para_quien','')}, Con quién: {esc_data.get('con_quien','')}")
+                st.write(f"Fecha: {esc_data.get('fecha','')}")
+                st.warning("¡Estás involucrado en esta escalación!")
+                st.markdown("---")
+        if count == 0:
+            st.info("No tienes escalaciones asignadas.")
     
     # ------------- Top 3 -------------
     elif choice == "Top 3":
@@ -502,13 +528,12 @@ def show_main_app():
             """
             components.html(calendar_html, height=600, scrolling=True)
     
-    # ------------- Roles (solo para TeamLead) -------------
+    # ------------- Roles (solo para TL) -------------
     elif choice == "Roles":
         if user_code == "ALECCION":
             st.subheader("📝 Asignación de Roles Semanal")
             st.write("Pulsa el botón para asignar roles de ActionTaker, Coach y Timekeeper de forma aleatoria.")
             if st.button("Asignar Roles"):
-                # Se asignan aleatoriamente roles entre los usuarios (excluyendo al TeamLead)
                 usuarios = [code for code in valid_users if code != "ALECCION"]
                 roles = ["ActionTaker", "Coach", "Timekeeper"]
                 asignacion = { rol: random.choice(usuarios) for rol in roles }
@@ -520,7 +545,6 @@ def show_main_app():
     
     # ------------- Compliance (Feedback) -------------
     elif choice == "Compliance":
-        # Se muestra para el TeamLead o el Coach asignado
         if user_code == "ALECCION" or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
             st.subheader("📝 Compliance - Feedback")
             st.write("Selecciona a quién deseas dar feedback y escribe tu comentario.")
