@@ -7,34 +7,56 @@ import json
 import base64
 
 # -------------------------------------------------------------------
-# Encabezado: Título y uploader de foto de perfil (con estilos dinámicos)
+# Hack de CSS para minimizar el file uploader
+# -------------------------------------------------------------------
+HIDE_UPLOADER_STYLE = """
+<style>
+/* Reducir el contenedor principal del file uploader */
+div[data-baseweb="fileUploader"] {
+    width: 40px !important; /* Ajusta el ancho deseado */
+    height: 40px !important; /* Ajusta la altura deseada */
+    overflow: hidden !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+/* Reducir/ocultar el área interna donde se muestra el texto */
+div[data-testid="stFileUploadDropzone"] {
+    min-height: 40px !important;
+    max-height: 40px !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: hidden !important;
+}
+/* Ocultar textos, botones y etiquetas */
+div[data-testid="stFileUploadDropzone"] p,
+div[data-testid="stFileUploadDropzone"] label,
+div[data-testid="stFileUploadDropzone"] button,
+div[data-testid="stFileUploadDropzone"] span {
+    display: none !important;
+}
+</style>
+"""
+st.markdown(HIDE_UPLOADER_STYLE, unsafe_allow_html=True)
+
+# -------------------------------------------------------------------
+# Encabezado: Título y file uploader minimalista en dos columnas
 # -------------------------------------------------------------------
 col_title, col_profile = st.columns([3, 1])
 with col_title:
     st.title("🔥 Daily Huddle - Enrique")
+
 with col_profile:
-    # Se inyecta CSS para que el file uploader tenga ancho 80px inicialmente.
-    st.markdown(
-        """
-        <style>
-        div[data-baseweb="fileUploader"] {
-            width: 80px !important;
-        }
-        </style>
-        """, unsafe_allow_html=True)
-    # Usamos label_visibility="hidden" para que no se muestre texto.
-    profile_photo = st.file_uploader("", type=["png", "jpg", "jpeg"], key="profile_photo", label_visibility="hidden")
+    # File uploader sin texto visible, sólo un recuadro pequeño clicable (40x40).
+    profile_photo = st.file_uploader(
+        "",
+        type=["png", "jpg", "jpeg"],
+        key="profile_photo",
+        label_visibility="hidden"
+    )
+    # Si se sube la imagen, la mostramos a 80 px de ancho
     if profile_photo:
-        # Una vez cargada la imagen, se inyecta CSS para reducir el ancho del uploader a 10px.
-        st.markdown(
-            """
-            <style>
-            div[data-baseweb="fileUploader"] {
-                width: 10px !important;
-            }
-            </style>
-            """, unsafe_allow_html=True)
-        # Se muestra la imagen en tamaño pequeño (ancho 80px)
         st.image(profile_photo, width=80)
         profile_photo_bytes = profile_photo.read()
         profile_photo_base64 = base64.b64encode(profile_photo_bytes).decode('utf-8')
@@ -103,7 +125,7 @@ status_colors = {
 }
 
 # -------------------------------------------------------------------
-# Menú principal (se han añadido Recognition y Escalations)
+# Menú principal
 # -------------------------------------------------------------------
 st.markdown("---")
 menu = ["Overview", "Attendance", "Recognition", "Escalations", "Top 3", "Action Board", "Communications", "Calendar"]
@@ -120,7 +142,7 @@ if choice == "Overview":
     """)
 
 # ----------------
-# Attendance: Registro de asistencia con pila dinámica y foto de perfil
+# Attendance: Registro de asistencia con pila dinámica
 # ----------------
 elif choice == "Attendance":
     st.subheader("📝 Registro de Asistencia")
@@ -287,13 +309,6 @@ elif choice == "Action Board":
             status_val = act_data.get('status', '')
             color = status_colors.get(status_val, "black")
             st.markdown(f"**Status:** <span style='color: {color};'>{status_val}</span>", unsafe_allow_html=True)
-            st.write(f"Nivel de energía: {act_data.get('energy_level','')}")
-            if "escalation" in act_data:
-                esc = act_data["escalation"]
-                st.markdown(f"**Escalación:** Quien: {esc.get('quien_escala','')}, Por qué: {esc.get('por_que','')}, Para quién: {esc.get('para_quien','')}, Con quién: {esc.get('con_quien','')}")
-            if "recognition" in act_data:
-                rec = act_data["recognition"]
-                st.markdown(f"**Recognition:** Email: {rec.get('email','')}, Mensaje: {rec.get('mensaje','')}")
             if st.button("🗑️ Eliminar", key=f"delete_action_{action.id}"):
                 db.collection("actions").document(action.id).delete()
                 st.success("Acción eliminada. Recarga la página para ver el cambio.")
@@ -412,3 +427,4 @@ elif choice == "Calendar":
         </html>
         """
         components.html(calendar_html, height=600, scrolling=True)
+
