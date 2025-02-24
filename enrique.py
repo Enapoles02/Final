@@ -7,6 +7,22 @@ import json
 import base64
 
 # -------------------------------------------------------------------
+# Encabezado: Título y foto de perfil a la par
+# -------------------------------------------------------------------
+col_title, col_profile = st.columns([3, 1])
+with col_title:
+    st.title("🔥 Daily Huddle - Enrique")
+with col_profile:
+    st.write("Sube tu foto de perfil:")
+    profile_photo = st.file_uploader("Foto de perfil", type=["png", "jpg", "jpeg"], key="profile_photo")
+    if profile_photo:
+        st.image(profile_photo, caption="Vista previa", use_column_width=True)
+        profile_photo_bytes = profile_photo.read()
+        profile_photo_base64 = base64.b64encode(profile_photo_bytes).decode('utf-8')
+    else:
+        profile_photo_base64 = ""
+
+# -------------------------------------------------------------------
 # Temporizador: Se inicia solo al presionar "Start Timer"
 # -------------------------------------------------------------------
 if "timer_started" not in st.session_state:
@@ -70,7 +86,7 @@ status_colors = {
 # -------------------------------------------------------------------
 # Menú principal (se han añadido Recognition y Escalations)
 # -------------------------------------------------------------------
-st.title("🔥 Daily Huddle - Enrique 🔥")
+st.markdown("---")
 menu = ["Overview", "Attendance", "Recognition", "Escalations", "Top 3", "Action Board", "Communications", "Calendar"]
 choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu)
 
@@ -85,10 +101,19 @@ if choice == "Overview":
     """)
 
 # ----------------
-# Attendance: Registro de asistencia con "pila" de energía y opción para subir foto
+# Attendance: Registro de asistencia con pila dinámica y reutilización de la foto de perfil
 # ----------------
 elif choice == "Attendance":
     st.subheader("📝 Registro de Asistencia")
+    
+    # Verificar y limpiar asistencia de días anteriores
+    today_date = datetime.now().strftime("%Y-%m-%d")
+    attendance_doc = db.collection("attendance").document("Enrique").get()
+    if attendance_doc.exists:
+        data = attendance_doc.to_dict()
+        if data.get("fecha") != today_date:
+            db.collection("attendance").document("Enrique").delete()
+    
     st.write("💡 ¿Cómo te sientes hoy?")
     feelings = {
         "😃": "Feliz",
@@ -102,37 +127,31 @@ elif choice == "Attendance":
     health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
     
     st.write("Nivel de energía:")
-    # Mostrar una "pila" visual con 5 niveles
-    battery_html = """
-    <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px;">
-      <div style="height: 20%; background-color: #ff0000;"></div>
-      <div style="height: 20%; background-color: #ffa500;"></div>
-      <div style="height: 20%; background-color: #ffff00;"></div>
-      <div style="height: 20%; background-color: #00ff00;"></div>
-      <div style="height: 20%; background-color: #006400;"></div>
+    # Pila visual dinámica: se llena según el nivel seleccionado
+    energy_options = ["Nivel 1", "Nivel 2", "Nivel 3", "Nivel 4", "Nivel 5"]
+    energy_level = st.radio("Selecciona tu nivel de energía:", options=energy_options, horizontal=True)
+    level_mapping = {
+        "Nivel 1": 20,
+        "Nivel 2": 40,
+        "Nivel 3": 60,
+        "Nivel 4": 80,
+        "Nivel 5": 100
+    }
+    fill_percent = level_mapping[energy_level]
+    battery_html = f"""
+    <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px; position: relative;">
+      <div style="position: absolute; bottom: 0; width: 100%; height: {fill_percent}%; background-color: #00ff00;"></div>
     </div>
     """
     st.markdown(battery_html, unsafe_allow_html=True)
-    energy = st.radio("Selecciona nivel de energía:", 
-                      options=["Nivel 1", "Nivel 2", "Nivel 3", "Nivel 4", "Nivel 5"], 
-                      horizontal=True)
-    
-    st.write("Adjunta tu foto:")
-    foto = st.file_uploader("Sube tu foto", type=["png", "jpg", "jpeg"])
-    if foto is not None:
-         st.image(foto, caption="Foto subida", use_column_width=True)
-         foto_bytes = foto.read()
-         foto_base64 = base64.b64encode(foto_bytes).decode('utf-8')
-    else:
-         foto_base64 = ""
     
     if st.button("✅ Registrar asistencia"):
          db.collection("attendance").document("Enrique").set({
-             "fecha": datetime.now().strftime("%Y-%m-%d"),
+             "fecha": today_date,
              "estado_animo": feelings[selected_feeling],
              "problema_salud": health_problem,
-             "energia": energy,
-             "foto": foto_base64
+             "energia": energy_level,
+             "foto": profile_photo_base64  # Se usa la foto del encabezado
          })
          st.success("Asistencia registrada correctamente.")
 
