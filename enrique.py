@@ -49,7 +49,7 @@ if st.session_state["user_code"] is None:
     st.stop()
 
 # ================================
-# Función para agrupar tareas por región (determinada por el primer usuario asignado)
+# Función para agrupar tareas automáticamente según usuario (determinando "región")
 # ================================
 def group_tasks_by_region(tasks):
     groups = {"NAMER": {}, "LATAM": {}, "Sin Región": {}}
@@ -57,7 +57,7 @@ def group_tasks_by_region(tasks):
     group_latam = {"MSANCHEZ", "MHERNANDEZ", "MGARCIA", "PSARACHAGA", "GMAJORAL"}
     for task in tasks:
         data = task.to_dict()
-        data["id"] = task.id  # Guardamos el ID del documento
+        data["id"] = task.id  # Guardamos la ID del documento
         user = data.get("usuario")
         if isinstance(user, list) and len(user) > 0:
             primary = user[0]
@@ -116,7 +116,7 @@ def show_main_app():
             st.success("Nuevos roles asignados:")
             st.json(st.session_state["roles"])
     
-    # --- Habilitar Start Timer: solo para TL o Timekeeper ---
+    # --- Habilitar Start Timer: solo para TL o usuario con rol Timekeeper ---
     can_start_timer = (user_code == "ALECCION" or 
                        ("roles" in st.session_state and st.session_state["roles"].get("Timekeeper") == user_code))
     if can_start_timer:
@@ -272,7 +272,7 @@ def show_main_app():
                     p = st.text_input("Descripción")
                 ti = st.date_input("Fecha de inicio")
                 tc = st.date_input("Fecha compromiso")
-                s = st.selectbox("Status", ["Pendiente","En proceso","Completado"], key="top3_new_status")
+                s = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="top3_new_status")
                 custom_status = st.text_input("Status personalizado (opcional)", key="top3_new_custom")
                 colaboradores = st.multiselect("Colaboradores (opcional)", options=[code for code in valid_users if code != user_code],
                                                  format_func=lambda x: valid_users[x])
@@ -280,7 +280,7 @@ def show_main_app():
                 submit_new_top3 = st.form_submit_button("Guardar tarea")
             if submit_new_top3:
                 final_status = get_status(s, custom_status)
-                fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower()=="completado" else ""
+                fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
                 data = {
                     "usuario": user_code if not colaboradores else [user_code] + colaboradores,
                     "descripcion": p,
@@ -314,7 +314,7 @@ def show_main_app():
                     status_val = act_data.get('status','')
                     color = status_colors.get(status_val, "black")
                     st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
-                    # Botón de eliminar usando el ID del documento
+                    # Botón de eliminar usando la ID del documento
                     action_id = act_data.get("id")
                     if st.button("🗑️ Eliminar", key=f"delete_action_{action_id}"):
                         db.collection("actions").document(action_id).delete()
@@ -328,7 +328,7 @@ def show_main_app():
                 accion = st.text_input("Descripción de la acción")
                 ti = st.date_input("Fecha de inicio")
                 tc = st.date_input("Fecha compromiso")
-                s = st.selectbox("Status", ["Pendiente","En proceso","Completado"], key="action_new_status")
+                s = st.selectbox("Status", ["Pendiente", "En proceso", "Completado"], key="action_new_status")
                 custom_status = st.text_input("Status personalizado (opcional)", key="action_new_custom")
                 colaboradores = st.multiselect("Colaboradores (opcional)", options=[code for code in valid_users if code != user_code],
                                                  format_func=lambda x: valid_users[x])
@@ -336,7 +336,7 @@ def show_main_app():
                 submit_new_action = st.form_submit_button("Guardar acción")
             if submit_new_action:
                 final_status = get_status(s, custom_status)
-                fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower()=="completado" else ""
+                fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
                 data = {
                     "usuario": user_code if not colaboradores else [user_code] + colaboradores,
                     "accion": accion,
@@ -354,7 +354,7 @@ def show_main_app():
     # ------------- Escalation -------------
     elif choice == "Escalation":
         st.subheader("⚠️ Escalation")
-        escalador = user_code
+        escalador = user_code  # Se asigna automáticamente
         with st.form("escalation_form"):
             razon = st.text_area("Razón")
             para_quien = st.selectbox("¿Para quién?", ["Miriam Sanchez", "Guillermo mayoral"])
@@ -437,7 +437,7 @@ def show_main_app():
         if doc.exists:
             current_coins = doc.to_dict().get("coins", 0)
         st.write(f"**Saldo actual:** {current_coins} DB COINS")
-        # Solo el TL (ALECCION) puede generar monedas
+        # Solo el TL (ALECCION) puede generar monedas en forma manual
         if user_code == "ALECCION":
             add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
             if st.button("Generar DB COINS"):
