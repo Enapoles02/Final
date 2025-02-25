@@ -12,9 +12,9 @@ import json, random
 # - R2R LATAM: {"MSANCHEZ", "MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
 # - WOR SGBS: {"MLOPEZ", "GMAJORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD"}
 # Además:
-#   - "ALECCION" es TL para GL NAMER & LATAM (se mostrará como "TL GL NAMER LATAM")
-#   - "WORLEAD" es TL para WOR SGBS
-#   - "LARANDA" (RH – Luis Aranda) es el único que puede generar monedas en su área.
+#   - "ALECCION" es TL para GL NAMER & LATAM (ve solo ese grupo)
+#   - "WORLEAD" es TL para WOR SGBS (ve solo ese grupo)
+#   - "LARANDA" (RH – Luis Aranda) es el único que puede generar monedas en WOR SGBS.
 # ================================
 valid_users = {
     "VREYES": "Reyes Escorsia Victor Manuel",
@@ -25,9 +25,9 @@ valid_users = {
     "MSANCHEZ": "Miriam Sanchez",
     "MHERNANDEZ": "Hernandez Ponce Maria Guadalupe",
     "MGARCIA": "Garcia Vazquez Mariana Aketzalli",
-    "ALECCION": "TL GL NAMER LATAM",  # TeamLead para GL NAMER & LATAM
+    "ALECCION": "TL GL NAMER LATAM",  # TL para R2R (NAMER y LATAM)
     "PSARACHAGA": "Paula Sarachaga",
-    "WORLEAD": "TL WOR SGBS",         # TeamLead para WOR SGBS
+    "WORLEAD": "TL WOR SGBS",         # TL para WOR SGBS
     "LARANDA": "RH - Luis Aranda",     # Solo para generación de monedas en WOR SGBS
     "MLOPEZ": "Miguel Lopez",
     "GMAJORAL": "Guillermo Mayoral",
@@ -107,17 +107,22 @@ activity_repo = [
 ]
 
 # ================================
-# Inicialización de Firebase usando los secretos TOML
+# Inicialización de Firebase usando secrets (TOML)
 # ================================
 def init_firebase():
     firebase_config = st.secrets["firebase"]
-    # Si st.secrets["firebase"] no es un diccionario, se convierte a uno
     if not isinstance(firebase_config, dict):
         firebase_config = firebase_config.to_dict()
-    cred = credentials.Certificate(firebase_config)
-    if not firebase_admin._apps:
-        firebase_admin.initialize_app(cred)
-    return firestore.client()
+    try:
+        cred = credentials.Certificate(firebase_config)
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        st.success("Firebase se inicializó correctamente.")
+        return db
+    except Exception as e:
+        st.error(f"Error al inicializar Firebase: {e}")
+        st.stop()
 
 db = init_firebase()
 
@@ -138,7 +143,6 @@ def show_main_app():
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
     # --- Asignación de roles ---
-    # Solo TL GL NAMER & LATAM ("ALECCION") asigna roles para su área.
     if user_code == "ALECCION":
         if st.button("Asignar Roles (GL NAMER & LATAM)"):
             posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA"}]
@@ -150,7 +154,20 @@ def show_main_app():
             }
             st.success("Roles asignados para GL NAMER & LATAM:")
             st.json(st.session_state["roles"])
-    # Para WOR SGBS, el TL es "WORLEAD". Cada área filtra sus propias tareas.
+    elif user_code == "WORLEAD":
+        if st.button("Asignar Roles (WOR SGBS)"):
+            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA"} and code in group_wor]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.success("Roles asignados para WOR SGBS:")
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
 
     # --- Habilitar Start Timer ---
     if user_code in {"ALECCION", "WORLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Timekeeper") == user_code):
@@ -193,9 +210,10 @@ def show_main_app():
         return custom.strip() if custom and custom.strip() != "" else selected
 
     # --- Menú Principal ---
-    # TL de GL NAMER & LATAM ("ALECCION") ve solo tareas de NAMER y LATAM.
-    # TL de WOR SGBS ("WORLEAD") ve solo tareas de WOR SGBS.
-    if user_code in {"ALECCION", "WORLEAD"}:
+    # Los TL ven el resumen de su área:
+    if user_code == "ALECCION":
+        main_menu = ["Asistencia Resumen", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
+    elif user_code == "WORLEAD":
         main_menu = ["Asistencia Resumen", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
     else:
         main_menu = ["Asistencia", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
@@ -253,9 +271,14 @@ def show_main_app():
             })
             st.success("Asistencia registrada correctamente.")
     
-    elif choice == "Asistencia Resumen" and user_code == "ALECCION":
-        st.subheader("📊 Resumen de Asistencia de Todos")
-        for u in [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA"}]:
+    elif choice == "Asistencia Resumen" and user_code in {"ALECCION", "WORLEAD"}:
+        st.subheader("📊 Resumen de Asistencia")
+        # Para TL, filtramos según el área:
+        if user_code == "ALECCION":
+            attendees = [u for u in valid_users if u in group_namer or u in group_latam]
+        elif user_code == "WORLEAD":
+            attendees = [u for u in valid_users if u in group_wor]
+        for u in attendees:
             doc = db.collection("attendance").document(u).get()
             if doc.exists:
                 data = doc.to_dict()
@@ -269,7 +292,6 @@ def show_main_app():
         all_tasks = list(db.collection("top3").stream())
         tasks = []
         if user_code == "ALECCION":
-            # TL GL NAMER & LATAM: filtrar tareas cuyo primer usuario esté en group_namer o group_latam
             for task in all_tasks:
                 data = task.to_dict()
                 user_field = data.get("usuario")
@@ -280,7 +302,6 @@ def show_main_app():
                 if primary in group_namer or primary in group_latam:
                     tasks.append(task)
         elif user_code == "WORLEAD":
-            # TL WOR SGBS: filtrar tareas cuyo primer usuario esté en group_wor
             for task in all_tasks:
                 data = task.to_dict()
                 user_field = data.get("usuario")
@@ -303,7 +324,6 @@ def show_main_app():
                     status_val = task_data.get('status','')
                     color = status_colors.get(status_val, "black")
                     st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
-                    # Edición y eliminación
                     new_status = st.selectbox(
                         "Editar status",
                         ["Pendiente", "En proceso", "Completado"],
@@ -538,7 +558,7 @@ def show_main_app():
         if doc.exists:
             current_coins = doc.to_dict().get("coins", 0)
         st.write(f"**Saldo actual:** {current_coins} DB COINS")
-        # Solo "LARANDA" (RH - Luis Aranda) puede generar monedas manualmente
+        # Solo LARANDA (RH) puede generar monedas manualmente.
         if user_code == "LARANDA":
             add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
             if st.button("Generar DB COINS"):
@@ -644,7 +664,6 @@ def show_main_app():
     
     # ------------- Roles -------------
     elif choice == "Roles":
-        # Solo los TL pueden acceder a este menú
         if user_code == "ALECCION":
             st.subheader("📝 Asignación de Roles Semanal - GL NAMER & LATAM")
             st.write("Pulsa el botón para asignar roles (Timekeeper, ActionTaker y Coach) para GL NAMER & LATAM.")
