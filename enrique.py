@@ -49,8 +49,7 @@ if st.session_state["user_code"] is None:
     st.stop()
 
 # ================================
-# Función para agrupar tareas automáticamente por región
-# (Se determina la región según el primer usuario asignado a la tarea)
+# Función para agrupar tareas por región (determinada por el primer usuario asignado)
 # ================================
 def group_tasks_by_region(tasks):
     groups = {"NAMER": {}, "LATAM": {}, "Sin Región": {}}
@@ -58,6 +57,7 @@ def group_tasks_by_region(tasks):
     group_latam = {"MSANCHEZ", "MHERNANDEZ", "MGARCIA", "PSARACHAGA", "GMAJORAL"}
     for task in tasks:
         data = task.to_dict()
+        data["id"] = task.id  # Guardamos el ID del documento
         user = data.get("usuario")
         if isinstance(user, list) and len(user) > 0:
             primary = user[0]
@@ -74,7 +74,6 @@ def group_tasks_by_region(tasks):
         if primary not in groups[region]:
             groups[region][primary] = []
         groups[region][primary].append(data)
-    # Eliminar grupos vacíos
     groups = {r: groups[r] for r in groups if groups[r]}
     return groups
 
@@ -173,7 +172,6 @@ def show_main_app():
         return custom.strip() if custom and custom.strip() != "" else selected
 
     # --- Menú Principal REORDENADO ---
-    # Para el TL: en lugar de "Asistencia", se muestra "Asistencia Resumen" en la parte superior
     if user_code == "ALECCION":
         main_menu = ["Asistencia Resumen", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
     else:
@@ -259,7 +257,7 @@ def show_main_app():
                     st.markdown(f"- [TOP 3] {task_data.get('descripcion','(Sin descripción)')}")
                     st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
                     status_val = task_data.get('status','')
-                    color = status_colors.get(status_val, "black")
+                    color = status_colors.get(status_val,"black")
                     st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
                     st.markdown("---")
         if st.button("➕ Agregar Tarea de Top 3"):
@@ -279,7 +277,6 @@ def show_main_app():
                 colaboradores = st.multiselect("Colaboradores (opcional)", options=[code for code in valid_users if code != user_code],
                                                  format_func=lambda x: valid_users[x])
                 privado = st.checkbox("Marcar como privado")
-                region_input = st.text_input("Región (se agrupará automáticamente)", value="")  # Este campo ya no se usa
                 submit_new_top3 = st.form_submit_button("Guardar tarea")
             if submit_new_top3:
                 final_status = get_status(s, custom_status)
@@ -317,6 +314,11 @@ def show_main_app():
                     status_val = act_data.get('status','')
                     color = status_colors.get(status_val, "black")
                     st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
+                    # Botón de eliminar usando el ID del documento
+                    action_id = act_data.get("id")
+                    if st.button("🗑️ Eliminar", key=f"delete_action_{action_id}"):
+                        db.collection("actions").document(action_id).delete()
+                        st.success("Acción eliminada.")
                     st.markdown("---")
         if st.button("➕ Agregar Acción"):
             st.session_state.show_action_form = True
@@ -331,7 +333,6 @@ def show_main_app():
                 colaboradores = st.multiselect("Colaboradores (opcional)", options=[code for code in valid_users if code != user_code],
                                                  format_func=lambda x: valid_users[x])
                 privado = st.checkbox("Marcar como privado")
-                # No se pide región porque se agrupa automáticamente por usuario
                 submit_new_action = st.form_submit_button("Guardar acción")
             if submit_new_action:
                 final_status = get_status(s, custom_status)
@@ -353,7 +354,7 @@ def show_main_app():
     # ------------- Escalation -------------
     elif choice == "Escalation":
         st.subheader("⚠️ Escalation")
-        escalador = user_code  # Se asigna automáticamente
+        escalador = user_code
         with st.form("escalation_form"):
             razon = st.text_area("Razón")
             para_quien = st.selectbox("¿Para quién?", ["Miriam Sanchez", "Guillermo mayoral"])
@@ -436,11 +437,32 @@ def show_main_app():
         if doc.exists:
             current_coins = doc.to_dict().get("coins", 0)
         st.write(f"**Saldo actual:** {current_coins} DB COINS")
-        add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
-        if st.button("Generar DB COINS"):
-            new_balance = current_coins + add_coins
-            wallet_ref.set({"coins": new_balance})
-            st.success(f"Generados {add_coins} DB COINS. Nuevo saldo: {new_balance}.")
+        # Solo el TL (ALECCION) puede generar monedas
+        if user_code == "ALECCION":
+            add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
+            if st.button("Generar DB COINS"):
+                new_balance = current_coins + add_coins
+                wallet_ref.set({"coins": new_balance})
+                st.success(f"Generados {add_coins} DB COINS. Nuevo saldo: {new_balance}.")
+            # Funciones administrativas en Wallet
+            st.markdown("### Funciones Administrativas")
+            admin_key = st.text_input("Clave Admin", type="password")
+            if admin_key == "ADMIN123":
+                st.info("Clave Admin válida. Funciones habilitadas.")
+                if st.button("Resetear todas las monedas a 0"):
+                    for u in valid_users:
+                        db.collection("wallets").document(u).set({"coins": 0})
+                    st.success("Todas las monedas han sido reiniciadas a 0.")
+                target = st.selectbox("Generar monedas para el usuario:", list(valid_users.keys()), format_func=lambda x: valid_users[x])
+                amt = st.number_input("Cantidad de DB COINS a generar:", min_value=1, step=1, value=10)
+                if st.button("Generar para usuario seleccionado"):
+                    target_ref = db.collection("wallets").document(target)
+                    doc_target = target_ref.get()
+                    current = 0
+                    if doc_target.exists:
+                        current = doc_target.to_dict().get("coins", 0)
+                    target_ref.set({"coins": current + amt})
+                    st.success(f"Generados {amt} DB COINS para {valid_users[target]}.")
     
     # ------------- Communications -------------
     elif choice == "Communications":
@@ -542,7 +564,7 @@ def show_main_app():
     elif choice == "Compliance":
         if user_code == "ALECCION" or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
             st.subheader("📝 Compliance - Feedback")
-            st.write("Selecciona a quién deseas dar feedback y escribe tu comentario.")
+            st.write("Selecciona a quién dar feedback y escribe tu comentario.")
             feedback_options = [code for code in valid_users if code != user_code]
             target_user = st.selectbox("Dar feedback a:", feedback_options, format_func=lambda x: valid_users[x])
             feedback = st.text_area("Feedback:")
@@ -608,3 +630,4 @@ show_main_app()
 # 9. ALECCION   -> Aleccion (TeamLead)
 # 10. PSARACHAGA -> Paula Sarachaga
 # 11. GMAJORAL  -> Guillermo Mayoral
+
