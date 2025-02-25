@@ -37,10 +37,7 @@ def show_login():
         if user_input in valid_users:
             st.session_state.user_code = user_input
             st.success(f"¡Bienvenido, {valid_users[user_input]}!")
-            try:
-                st.experimental_rerun()
-            except Exception:
-                pass
+            st.experimental_rerun()
         else:
             st.error("Código de usuario inválido. Intenta nuevamente.")
 
@@ -49,7 +46,7 @@ if st.session_state["user_code"] is None:
     st.stop()
 
 # ================================
-# Función para agrupar tareas automáticamente según usuario (determinando "región")
+# Función para agrupar tareas automáticamente (determinada por el primer usuario asignado)
 # ================================
 def group_tasks_by_region(tasks):
     groups = {"NAMER": {}, "LATAM": {}, "Sin Región": {}}
@@ -57,7 +54,7 @@ def group_tasks_by_region(tasks):
     group_latam = {"MSANCHEZ", "MHERNANDEZ", "MGARCIA", "PSARACHAGA", "GMAJORAL"}
     for task in tasks:
         data = task.to_dict()
-        data["id"] = task.id  # Guardamos la ID del documento
+        data["id"] = task.id  # Guardamos la ID para poder actualizar/eliminar
         user = data.get("usuario")
         if isinstance(user, list) and len(user) > 0:
             primary = user[0]
@@ -93,7 +90,7 @@ activity_repo = [
 def show_main_app():
     user_code = st.session_state["user_code"]
 
-    # --- Imagen corporativa de portada ---
+    # --- Imagen de portada ---
     st.image(
         "http://bulk-distributor.com/wp-content/uploads/2016/01/DB-Schenker-Hub-Salzburg.jpg",
         caption="DB Schenker",
@@ -103,11 +100,11 @@ def show_main_app():
     st.title("🔥 Daily Huddle")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
-    # --- Asignación de roles (solo TL puede asignar roles) ---
+    # --- Asignación de roles (solo TL puede asignar) ---
     if user_code == "ALECCION":
         if st.button("Asignar Roles"):
             posibles = [code for code in valid_users if code != "ALECCION"]
-            roles_asignados = random.sample(posibles, 3)  # Roles únicos
+            roles_asignados = random.sample(posibles, 3)
             st.session_state["roles"] = {
                 "Timekeeper": roles_asignados[0],
                 "ActionTaker": roles_asignados[1],
@@ -116,7 +113,7 @@ def show_main_app():
             st.success("Nuevos roles asignados:")
             st.json(st.session_state["roles"])
     
-    # --- Habilitar Start Timer: solo para TL o usuario con rol Timekeeper ---
+    # --- Habilitar Start Timer (TL o Timekeeper) ---
     can_start_timer = (user_code == "ALECCION" or 
                        ("roles" in st.session_state and st.session_state["roles"].get("Timekeeper") == user_code))
     if can_start_timer:
@@ -171,7 +168,7 @@ def show_main_app():
     def get_status(selected, custom):
         return custom.strip() if custom and custom.strip() != "" else selected
 
-    # --- Menú Principal REORDENADO ---
+    # --- Menú Principal ---
     if user_code == "ALECCION":
         main_menu = ["Asistencia Resumen", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
     else:
@@ -257,8 +254,24 @@ def show_main_app():
                     st.markdown(f"- [TOP 3] {task_data.get('descripcion','(Sin descripción)')}")
                     st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
                     status_val = task_data.get('status','')
-                    color = status_colors.get(status_val,"black")
+                    color = status_colors.get(status_val, "black")
                     st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
+                    # Sección para editar el status
+                    new_status = st.selectbox(
+                        "Editar status",
+                        ["Pendiente", "En proceso", "Completado"],
+                        index=(["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
+                        key=f"top3_{task_data.get('id')}"
+                    )
+                    custom_status = st.text_input("Status personalizado (opcional)", key=f"top3_custom_{task_data.get('id')}")
+                    if st.button("Actualizar Status", key=f"update_top3_{task_data.get('id')}"):
+                        final_status = get_status(new_status, custom_status)
+                        fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else task_data.get("fecha_real", "")
+                        db.collection("top3").document(task_data.get("id")).update({
+                            "status": final_status,
+                            "fecha_real": fecha_real
+                        })
+                        st.success("Status actualizado.")
                     st.markdown("---")
         if st.button("➕ Agregar Tarea de Top 3"):
             st.session_state.show_top3_form = True
@@ -319,6 +332,22 @@ def show_main_app():
                     if st.button("🗑️ Eliminar", key=f"delete_action_{action_id}"):
                         db.collection("actions").document(action_id).delete()
                         st.success("Acción eliminada.")
+                    # Sección para editar el status
+                    new_status = st.selectbox(
+                        "Editar status",
+                        ["Pendiente", "En proceso", "Completado"],
+                        index=(["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
+                        key=f"action_{action_id}"
+                    )
+                    custom_status = st.text_input("Status personalizado (opcional)", key=f"action_custom_{action_id}")
+                    if st.button("Actualizar Status", key=f"update_action_{action_id}"):
+                        final_status = get_status(new_status, custom_status)
+                        fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else act_data.get("fecha_real", "")
+                        db.collection("actions").document(action_id).update({
+                            "status": final_status,
+                            "fecha_real": fecha_real
+                        })
+                        st.success("Status actualizado.")
                     st.markdown("---")
         if st.button("➕ Agregar Acción"):
             st.session_state.show_action_form = True
@@ -354,7 +383,7 @@ def show_main_app():
     # ------------- Escalation -------------
     elif choice == "Escalation":
         st.subheader("⚠️ Escalation")
-        escalador = user_code  # Se asigna automáticamente
+        escalador = user_code
         with st.form("escalation_form"):
             razon = st.text_area("Razón")
             para_quien = st.selectbox("¿Para quién?", ["Miriam Sanchez", "Guillermo mayoral"])
@@ -437,14 +466,13 @@ def show_main_app():
         if doc.exists:
             current_coins = doc.to_dict().get("coins", 0)
         st.write(f"**Saldo actual:** {current_coins} DB COINS")
-        # Solo el TL (ALECCION) puede generar monedas en forma manual
+        # Solo el TL (ALECCION) tiene la opción manual de generar monedas
         if user_code == "ALECCION":
             add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
             if st.button("Generar DB COINS"):
                 new_balance = current_coins + add_coins
                 wallet_ref.set({"coins": new_balance})
                 st.success(f"Generados {add_coins} DB COINS. Nuevo saldo: {new_balance}.")
-            # Funciones administrativas en Wallet
             st.markdown("### Funciones Administrativas")
             admin_key = st.text_input("Clave Admin", type="password")
             if admin_key == "ADMIN123":
@@ -579,7 +607,7 @@ def show_main_app():
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para el Coach o el TeamLead.")
     
-    # ------------- Todas las Tareas (solo para TL o ActionTaker con permiso) -------------
+    # ------------- Todas las Tareas (solo para TL o ActionTaker) -------------
     elif choice == "Todas las Tareas":
         st.subheader("🗂️ Todas las Tareas")
         st.markdown("### Tareas de Top 3")
@@ -630,4 +658,3 @@ show_main_app()
 # 9. ALECCION   -> Aleccion (TeamLead)
 # 10. PSARACHAGA -> Paula Sarachaga
 # 11. GMAJORAL  -> Guillermo Mayoral
-
