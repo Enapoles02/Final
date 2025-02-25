@@ -46,7 +46,7 @@ if st.session_state["user_code"] is None:
     st.stop()
 
 # ================================
-# Función para agrupar tareas automáticamente (determinada por el primer usuario asignado)
+# Función para agrupar tareas automáticamente según el primer usuario asignado
 # ================================
 def group_tasks_by_region(tasks):
     groups = {"NAMER": {}, "LATAM": {}, "Sin Región": {}}
@@ -54,7 +54,7 @@ def group_tasks_by_region(tasks):
     group_latam = {"MSANCHEZ", "MHERNANDEZ", "MGARCIA", "PSARACHAGA", "GMAJORAL"}
     for task in tasks:
         data = task.to_dict()
-        data["id"] = task.id  # Guardamos la ID para poder actualizar/eliminar
+        data["id"] = task.id  # Guardamos la ID del documento
         user = data.get("usuario")
         if isinstance(user, list) and len(user) > 0:
             primary = user[0]
@@ -100,7 +100,7 @@ def show_main_app():
     st.title("🔥 Daily Huddle")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
-    # --- Asignación de roles (solo TL puede asignar) ---
+    # --- Asignación de roles (solo TL) ---
     if user_code == "ALECCION":
         if st.button("Asignar Roles"):
             posibles = [code for code in valid_users if code != "ALECCION"]
@@ -159,7 +159,7 @@ def show_main_app():
         st.error(f"Error al inicializar Firebase: {e}")
         st.stop()
     
-    # --- Diccionario de colores para status ---
+    # --- Colores para status ---
     status_colors = {
         "Pendiente": "red",
         "En proceso": "orange",
@@ -256,22 +256,29 @@ def show_main_app():
                     status_val = task_data.get('status','')
                     color = status_colors.get(status_val, "black")
                     st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
-                    # Sección para editar el status
+                    # Botones para editar status y eliminar la tarea
                     new_status = st.selectbox(
                         "Editar status",
                         ["Pendiente", "En proceso", "Completado"],
-                        index=(["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
-                        key=f"top3_{task_data.get('id')}"
+                        index=(["Pendiente", "En proceso", "Completado"].index(status_val)
+                               if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
+                        key=f"top3_status_{task_data.get('id')}"
                     )
                     custom_status = st.text_input("Status personalizado (opcional)", key=f"top3_custom_{task_data.get('id')}")
-                    if st.button("Actualizar Status", key=f"update_top3_{task_data.get('id')}"):
-                        final_status = get_status(new_status, custom_status)
-                        fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else task_data.get("fecha_real", "")
-                        db.collection("top3").document(task_data.get("id")).update({
-                            "status": final_status,
-                            "fecha_real": fecha_real
-                        })
-                        st.success("Status actualizado.")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("Actualizar Status", key=f"update_top3_{task_data.get('id')}"):
+                            final_status = get_status(new_status, custom_status)
+                            fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else task_data.get("fecha_real", "")
+                            db.collection("top3").document(task_data.get("id")).update({
+                                "status": final_status,
+                                "fecha_real": fecha_real
+                            })
+                            st.success("Status actualizado.")
+                    with col2:
+                        if st.button("🗑️ Eliminar", key=f"delete_top3_{task_data.get('id')}"):
+                            db.collection("top3").document(task_data.get("id")).delete()
+                            st.success("Tarea eliminada.")
                     st.markdown("---")
         if st.button("➕ Agregar Tarea de Top 3"):
             st.session_state.show_top3_form = True
@@ -327,27 +334,29 @@ def show_main_app():
                     status_val = act_data.get('status','')
                     color = status_colors.get(status_val, "black")
                     st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
-                    # Botón de eliminar usando la ID del documento
-                    action_id = act_data.get("id")
-                    if st.button("🗑️ Eliminar", key=f"delete_action_{action_id}"):
-                        db.collection("actions").document(action_id).delete()
-                        st.success("Acción eliminada.")
-                    # Sección para editar el status
+                    # Botones para actualizar status y eliminar
                     new_status = st.selectbox(
                         "Editar status",
                         ["Pendiente", "En proceso", "Completado"],
-                        index=(["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
-                        key=f"action_{action_id}"
+                        index=(["Pendiente", "En proceso", "Completado"].index(status_val)
+                               if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
+                        key=f"action_status_{act_data.get('id')}"
                     )
-                    custom_status = st.text_input("Status personalizado (opcional)", key=f"action_custom_{action_id}")
-                    if st.button("Actualizar Status", key=f"update_action_{action_id}"):
-                        final_status = get_status(new_status, custom_status)
-                        fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else act_data.get("fecha_real", "")
-                        db.collection("actions").document(action_id).update({
-                            "status": final_status,
-                            "fecha_real": fecha_real
-                        })
-                        st.success("Status actualizado.")
+                    custom_status = st.text_input("Status personalizado (opcional)", key=f"action_custom_{act_data.get('id')}")
+                    col1, col2 = st.columns(2)
+                    with col1:
+                        if st.button("Actualizar Status", key=f"update_action_{act_data.get('id')}"):
+                            final_status = get_status(new_status, custom_status)
+                            fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else act_data.get("fecha_real", "")
+                            db.collection("actions").document(act_data.get("id")).update({
+                                "status": final_status,
+                                "fecha_real": fecha_real
+                            })
+                            st.success("Status actualizado.")
+                    with col2:
+                        if st.button("🗑️ Eliminar", key=f"delete_action_{act_data.get('id')}"):
+                            db.collection("actions").document(act_data.get("id")).delete()
+                            st.success("Acción eliminada.")
                     st.markdown("---")
         if st.button("➕ Agregar Acción"):
             st.session_state.show_action_form = True
@@ -466,7 +475,7 @@ def show_main_app():
         if doc.exists:
             current_coins = doc.to_dict().get("coins", 0)
         st.write(f"**Saldo actual:** {current_coins} DB COINS")
-        # Solo el TL (ALECCION) tiene la opción manual de generar monedas
+        # Solo el TL (ALECCION) puede generar monedas manualmente
         if user_code == "ALECCION":
             add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
             if st.button("Generar DB COINS"):
@@ -658,4 +667,3 @@ show_main_app()
 # 9. ALECCION   -> Aleccion (TeamLead)
 # 10. PSARACHAGA -> Paula Sarachaga
 # 11. GMAJORAL  -> Guillermo Mayoral
-
