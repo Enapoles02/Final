@@ -133,27 +133,6 @@ activity_repo = [
     "Análisis de desempeño trimestral",
     "Sesión de brainstorming para innovación"
 ]
-
-# ================================
-# Inicialización de Firebase usando secrets (TOML)
-# ================================
-def init_firebase():
-    firebase_config = st.secrets["firebase"]
-    if not isinstance(firebase_config, dict):
-        firebase_config = firebase_config.to_dict()
-    try:
-        cred = credentials.Certificate(firebase_config)
-        if not firebase_admin._apps:
-            firebase_admin.initialize_app(cred)
-        db = firestore.client()
-        st.success("Firebase se inicializó correctamente.")
-        return db
-    except Exception as e:
-        st.error(f"Error al inicializar Firebase: {e}")
-        st.stop()
-
-db = init_firebase()
-
 # ================================
 # App Principal
 # ================================
