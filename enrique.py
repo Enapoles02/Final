@@ -40,6 +40,7 @@ valid_users = {
     "GAVILES": "Gabriel Aviles",
     "JLOPEZ": "Jesus Lopez",
     "FALEAD": "TL FA",
+    "ABARRERA": "Andres Barrera",  # Añadido para FA
     # IC:
     "CCIBARRA": "Carlos Candelas Ibarra",
     "LEDYANEZ": "Luis Enrique Delhumeau Yanez",
@@ -51,7 +52,7 @@ group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES"}
 group_latam    = {"MSANCHEZ", "MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL"}
 group_wor      = {"MLOPEZ", "GMAJORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
-group_fa       = {"GAVILES", "JLOPEZ", "FALEAD"}
+group_fa       = {"GAVILES", "JLOPEZ", "FALEAD", "ABARRERA"}
 group_ic       = {"CCIBARRA", "LEDYANEZ", "EIMARTINEZ", "ICLEAD"}
 
 # ================================
@@ -62,7 +63,7 @@ if "user_code" not in st.session_state:
 
 def show_login():
     st.title("🔥 Daily Huddle - Login")
-    st.write("Ingresa tu código de usuario")
+    st.write("Ingresa tu código de usuario (ej.: CNAPOLES, R2RGRAL, WORLEAD, FALEAD, ICLEAD, etc.)")
     user_input = st.text_input("Código de usuario:", max_chars=20)
     if st.button("Ingresar"):
         user_input = user_input.strip().upper()
@@ -166,7 +167,7 @@ def show_main_app():
     st.title("🔥 Daily Huddle")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
-    # --- Asignación de roles ---
+    # --- Asignación de roles (sección de TL) ---
     if user_code == "ALECCION":
         if st.button("Asignar Roles (GL NAMER & LATAM)"):
             posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"}]
@@ -285,6 +286,7 @@ def show_main_app():
 
     choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu_options)
     
+    # ------------- Asistencia / Asistencia Resumen -------------
     if choice == "Asistencia":
         st.subheader("📝 Registro de Asistencia")
         today_date = datetime.now().strftime("%Y-%m-%d")
@@ -346,6 +348,7 @@ def show_main_app():
                 st.write(f"Fecha: {data.get('fecha','')}, Estado: {data.get('estado_animo','')}, Salud: {data.get('problema_salud','')}, Energía: {data.get('energia','')}")
                 st.markdown("---")
     
+    # ------------- Top 3 -------------
     elif choice == "Top 3":
         st.subheader("📌 Top 3 Prioridades - Resumen")
         all_tasks = list(db.collection("top3").stream())
@@ -593,7 +596,25 @@ def show_main_app():
     elif choice == "Escalation":
         st.subheader("⚠️ Escalation")
         escalador = user_code
-        para_quien = st.selectbox("¿Para quién?", ["MLOPEZ", "MSANCHEZ", "GMAJORAL"], format_func=lambda x: valid_users[x])
+        
+        # Construir la lista de "para quién" según el área del escalador:
+        # Opciones comunes para todos:
+        common_options = {"MLOPEZ", "GMAJORAL", "LARANDA"}
+        # Adicional según área:
+        if user_code in group_fa:
+            additional = {"ABARRERA"}
+        elif user_code in group_ic:
+            additional = {"YAEL"}
+        elif user_code in (group_namer.union(group_latam)):
+            additional = {"MSANCHEZ"}
+        elif user_code in group_wor:
+            additional = set()  # No adicionales
+        else:
+            additional = set()
+        para_quien_options = sorted(list(common_options.union(additional)))
+        
+        para_quien = st.selectbox("¿Para quién?", para_quien_options, format_func=lambda x: valid_users.get(x, x))
+        
         with st.form("escalation_form"):
             razon = st.text_area("Razón")
             con_quien = st.multiselect("¿Con quién se tiene el tema?", options=[code for code in valid_users if code != escalador],
@@ -923,6 +944,7 @@ show_main_app()
 #   GAVILES   -> Gabriel Aviles
 #   JLOPEZ    -> Jesus Lopez
 #   FALEAD    -> TL FA
+#   ABARRERA  -> Andres Barrera
 #
 # IC:
 #   CCIBARRA  -> Carlos Candelas Ibarra
