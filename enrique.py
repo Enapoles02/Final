@@ -49,21 +49,18 @@ if st.session_state["user_code"] is None:
     st.stop()
 
 # ================================
-# Función para agrupar tareas por región y luego por usuario
+# Función para agrupar tareas (opcional)
 # ================================
 def group_tasks_by_region(tasks):
     groups = {}
     for task in tasks:
         data = task.to_dict()
-        # Suponemos que cada tarea puede tener un campo "region"
         region = data.get("region", "Sin Región")
-        # Para asignar a más de un usuario, asumimos que "usuario" puede ser una lista
         usuarios = data.get("usuario")
         if not isinstance(usuarios, list):
             usuarios = [usuarios]
         if region not in groups:
             groups[region] = {}
-        # Agrupar por usuario (o concatenar tareas si hay múltiples)
         for u in usuarios:
             if u not in groups[region]:
                 groups[region][u] = []
@@ -96,18 +93,21 @@ def show_main_app():
     st.title("🔥 Daily Huddle")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
-    # --- Asignación de roles (solo TL puede asignar roles, sin repetición) ---
+    # --- Asignación de roles (solo TL puede asignar roles) ---
     if user_code == "ALECCION":
-        if "roles" not in st.session_state:
-            posibles = [code for code in valid_users if code not in ["ALECCION"]]
+        if st.button("Asignar Roles"):
+            posibles = [code for code in valid_users if code != "ALECCION"]
+            # Usamos random.sample para roles sin repetición
             roles_asignados = random.sample(posibles, 3)
             st.session_state["roles"] = {
                 "Timekeeper": roles_asignados[0],
                 "ActionTaker": roles_asignados[1],
                 "Coach": roles_asignados[2]
             }
+            st.success("Nuevos roles asignados:")
+            st.json(st.session_state["roles"])
     
-    # --- Habilitar Start Timer solo para TL o Timekeeper ---
+    # --- Habilitar Start Timer: solo para TL o Timekeeper ---
     can_start_timer = (user_code == "ALECCION" or 
                        ("roles" in st.session_state and st.session_state["roles"].get("Timekeeper") == user_code))
     if can_start_timer:
@@ -163,31 +163,26 @@ def show_main_app():
         return custom.strip() if custom and custom.strip() != "" else selected
 
     # --- Menú Principal REORDENADO ---
-    # Opciones principales:
-    # Asistencia, Asistencia Resumen (solo TL), Top 3, Action Board, Escalation, Recognition, Store DBSCHENKER, Wallet
-    # Opciones extra: Communications, Calendar, Roles, Compliance, Todas las Tareas (según permisos)
-    main_menu = [
-        "Asistencia",
-        "Top 3",
-        "Action Board",
-        "Escalation",
-        "Recognition",
-        "Store DBSCHENKER",
-        "Wallet"
-    ]
+    # Para TL: reemplazamos "Asistencia" por "Asistencia Resumen" y ponemos en la parte superior.
+    if user_code == "ALECCION":
+        main_menu = ["Asistencia Resumen", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
+    else:
+        main_menu = ["Asistencia", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
+    
     extra_menu = ["Communications", "Calendar"]
     if user_code == "ALECCION":
-        extra_menu.extend(["Asistencia Resumen", "Roles", "Compliance", "Todas las Tareas"])
-    elif "roles" in st.session_state:
-        if st.session_state["roles"].get("Coach") == user_code:
-            extra_menu.append("Compliance")
-        if st.session_state["roles"].get("ActionTaker") == user_code:
-            extra_menu.append("Todas las Tareas")
+        extra_menu.extend(["Roles", "Compliance", "Todas las Tareas"])
+    else:
+        if "roles" in st.session_state:
+            if st.session_state["roles"].get("Coach") == user_code:
+                extra_menu.append("Compliance")
+            if st.session_state["roles"].get("ActionTaker") == user_code:
+                extra_menu.append("Todas las Tareas")
     menu_options = main_menu + extra_menu
 
     choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu_options)
     
-    # ------------- Asistencia -------------
+    # ------------- Asistencia o Asistencia Resumen -------------
     if choice == "Asistencia":
         st.subheader("📝 Registro de Asistencia")
         today_date = datetime.now().strftime("%Y-%m-%d")
@@ -227,32 +222,30 @@ def show_main_app():
             })
             st.success("Asistencia registrada correctamente.")
     
-    # ------------- Asistencia Resumen (solo para TL) -------------
     elif choice == "Asistencia Resumen" and user_code == "ALECCION":
         st.subheader("📊 Resumen de Asistencia de Todos")
-        users = list(valid_users.keys())
-        # Mostrar solo asistencia de usuarios (excluyendo TL si se desea)
-        for u in users:
-            if u != "ALECCION":
-                doc = db.collection("attendance").document(u).get()
-                if doc.exists:
-                    data = doc.to_dict()
-                    st.markdown(f"**{valid_users[u]}:**")
-                    st.write(f"Fecha: {data.get('fecha','')}, Estado de ánimo: {data.get('estado_animo','')}, Salud: {data.get('problema_salud','')}, Energía: {data.get('energia','')}")
-                    st.markdown("---")
+        for u in [code for code in valid_users if code != "ALECCION"]:
+            doc = db.collection("attendance").document(u).get()
+            if doc.exists:
+                data = doc.to_dict()
+                st.markdown(f"**{valid_users[u]}:**")
+                st.write(f"Fecha: {data.get('fecha','')}, Estado de ánimo: {data.get('estado_animo','')}, Salud: {data.get('problema_salud','')}, Energía: {data.get('energia','')}")
+                st.markdown("---")
     
     # ------------- Top 3 -------------
     elif choice == "Top 3":
         st.subheader("📌 Top 3 Prioridades - Resumen")
-        # Para agrupar por región y luego por usuario, se asume que cada tarea tiene un campo "region"
-        if user_code == "ALECCION" or ( "roles" in st.session_state and st.session_state["roles"].get("ActionTaker") == user_code):
+        # Si es TL o el usuario tiene rol ActionTaker, se muestran todas; de lo contrario, solo las propias.
+        is_actiontaker = ("roles" in st.session_state and st.session_state["roles"].get("ActionTaker") == user_code)
+        if user_code == "ALECCION" or is_actiontaker:
             tasks = list(db.collection("top3").stream())
         else:
             tasks = list(db.collection("top3").where("usuario", "==", user_code).stream())
+        # Agrupar tareas por región y usuario
         groups = group_tasks_by_region(tasks)
-        for region, users_tasks in groups.items():
+        for region, group in groups.items():
             with st.expander(f"Región: {region}"):
-                for u, t_list in users_tasks.items():
+                for u, t_list in group.items():
                     with st.expander(f"Usuario: {valid_users.get(u, u)}"):
                         for task_data in t_list:
                             st.markdown(f"**[TOP 3] {task_data.get('descripcion','(Sin descripción)')}**")
@@ -261,15 +254,12 @@ def show_main_app():
                             color = status_colors.get(status_val,"black")
                             st.markdown(f"**Status:** <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
                             st.markdown("---")
-        
-        # Formulario para agregar nueva tarea
         if st.button("➕ Agregar Tarea de Top 3"):
             st.session_state.show_top3_form = True
         if st.session_state.get("show_top3_form"):
             with st.form("top3_add_form"):
                 st.markdown("### Nueva Tarea - Top 3")
-                # Permitir elegir de un repositorio de actividades predefinidas
-                selected_activity = st.selectbox("Selecciona una actividad predefinida (opcional)", [""] + activity_repo)
+                selected_activity = st.selectbox("Selecciona actividad predefinida (opcional)", [""] + activity_repo)
                 if selected_activity != "":
                     p = selected_activity
                 else:
@@ -278,10 +268,10 @@ def show_main_app():
                 tc = st.date_input("Fecha compromiso")
                 s = st.selectbox("Status", ["Pendiente","En proceso","Completado"], key="top3_new_status")
                 custom_status = st.text_input("Status personalizado (opcional)", key="top3_new_custom")
-                # Permitir asignar a más de un usuario (colaboradores)
                 colaboradores = st.multiselect("Colaboradores (opcional)", options=[code for code in valid_users if code != user_code],
                                                  format_func=lambda x: valid_users[x])
                 privado = st.checkbox("Marcar como privado")
+                region = st.text_input("Región (NAMER o LATAM)", value="NAMER")
                 submit_new_top3 = st.form_submit_button("Guardar tarea")
             if submit_new_top3:
                 final_status = get_status(s, custom_status)
@@ -295,26 +285,24 @@ def show_main_app():
                     "status": final_status,
                     "privado": privado,
                     "timestamp": datetime.now(),
-                    # Se puede agregar "region" si se requiere; aquí se deja vacío
-                    "region": st.text_input("Región (NAMER o LATAM)", value="NAMER")
+                    "region": region
                 }
                 db.collection("top3").add(data)
                 st.success("Tarea de Top 3 guardada.")
                 st.session_state.show_top3_form = False
-
+    
     # ------------- Action Board -------------
     elif choice == "Action Board":
         st.subheader("✅ Acciones y Seguimiento - Resumen")
-        # Si el usuario es ActionTaker o TL, se muestran todas; de lo contrario, propias.
         is_actiontaker = ("roles" in st.session_state and st.session_state["roles"].get("ActionTaker") == user_code)
         if user_code == "ALECCION" or is_actiontaker:
             actions = list(db.collection("actions").stream())
         else:
             actions = list(db.collection("actions").where("usuario", "==", user_code).stream())
         groups_actions = group_tasks_by_region(actions)
-        for region, users_tasks in groups_actions.items():
+        for region, group in groups_actions.items():
             with st.expander(f"Región: {region}"):
-                for u, t_list in users_tasks.items():
+                for u, t_list in group.items():
                     with st.expander(f"Usuario: {valid_users.get(u, u)}"):
                         for act_data in t_list:
                             st.markdown(f"**[Action Board] {act_data.get('accion','(Sin descripción)')}**")
@@ -323,7 +311,6 @@ def show_main_app():
                             color = status_colors.get(status_val, "black")
                             st.markdown(f"**Status:** <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
                             st.markdown("---")
-        
         if st.button("➕ Agregar Acción"):
             st.session_state.show_action_form = True
         if st.session_state.get("show_action_form"):
@@ -337,6 +324,7 @@ def show_main_app():
                 colaboradores = st.multiselect("Colaboradores (opcional)", options=[code for code in valid_users if code != user_code],
                                                  format_func=lambda x: valid_users[x])
                 privado = st.checkbox("Marcar como privado")
+                region = st.text_input("Región (NAMER o LATAM)", value="NAMER")
                 submit_new_action = st.form_submit_button("Guardar acción")
             if submit_new_action:
                 final_status = get_status(s, custom_status)
@@ -350,12 +338,12 @@ def show_main_app():
                     "status": final_status,
                     "privado": privado,
                     "timestamp": datetime.now(),
-                    "region": st.text_input("Región (NAMER o LATAM)", value="NAMER")
+                    "region": region
                 }
                 db.collection("actions").add(data)
                 st.success("Acción guardada.")
                 st.session_state.show_action_form = False
-
+    
     # ------------- Escalation -------------
     elif choice == "Escalation":
         st.subheader("⚠️ Escalation")
@@ -530,26 +518,25 @@ def show_main_app():
     elif choice == "Roles":
         if user_code == "ALECCION":
             st.subheader("📝 Asignación de Roles Semanal")
-            st.write("Pulsa el botón para asignar roles de Timekeeper, ActionTaker y Coach (sin repetición).")
+            st.write("Pulsa el botón para asignar roles de Timekeeper, ActionTaker y Coach (sin repetición). Cada asignación reemplaza la anterior.")
             if st.button("Asignar Roles"):
                 posibles = [code for code in valid_users if code != "ALECCION"]
                 roles_asignados = random.sample(posibles, 3)
-                asignacion = {
+                st.session_state["roles"] = {
                     "Timekeeper": roles_asignados[0],
                     "ActionTaker": roles_asignados[1],
                     "Coach": roles_asignados[2]
                 }
-                st.session_state["roles"] = asignacion
-                st.write("Roles asignados:")
-                st.json(asignacion)
+                st.success("Nuevos roles asignados:")
+                st.json(st.session_state["roles"])
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para el TeamLead.")
     
-    # ------------- Compliance (solo TL o Coach) -------------
+    # ------------- Compliance (solo para TL o Coach) -------------
     elif choice == "Compliance":
         if user_code == "ALECCION" or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
             st.subheader("📝 Compliance - Feedback")
-            st.write("Selecciona a quién dar feedback y escribe tu comentario.")
+            st.write("Selecciona a quién deseas dar feedback y escribe tu comentario.")
             feedback_options = [code for code in valid_users if code != user_code]
             target_user = st.selectbox("Dar feedback a:", feedback_options, format_func=lambda x: valid_users[x])
             feedback = st.text_area("Feedback:")
