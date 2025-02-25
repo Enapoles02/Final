@@ -7,39 +7,65 @@ import json, random
 
 # ================================
 # Lista de usuarios válidos (Código -> Nombre completo)
-# Y sus áreas:
-# - R2R NAMER: {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES"}
-# - R2R LATAM: {"MSANCHEZ", "MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
-# - WOR SGBS: {"MLOPEZ", "GMAJORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD"}
-# Además:
-#   - "ALECCION" es TL para GL NAMER & LATAM (ve solo ese grupo)
-#   - "WORLEAD" es TL para WOR SGBS (ve solo ese grupo)
-#   - "LARANDA" (RH – Luis Aranda) es el único que puede generar monedas en WOR SGBS.
+# Y asignación a áreas:
+# R2R NAMER: {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES"}
+# R2R LATAM: {"MSANCHEZ", "MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
+# WOR SGBS: {"MLOPEZ", "GMAJORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD"}
+# IC: {"YALEDON", "ALOPEZV", "BMANCHA", "CCANDEL", "LEDHUME", "EIBANEZ", "ICLEAD"}
+# Fixed Assets: {"ABARRERA", "GAVILES", "JLOPEZ", "FALEAD"}
+#
+# Notas de TL:
+# - "ALECCION": TL GL NAMER LATAM (verá solo R2R NAMER y LATAM)
+# - "WORLEAD": TL WOR SGBS (verá solo su grupo)
+# - "ICLEAD": TL IC (verá solo su grupo)
+# - "FALEAD": TL Fixed Assets (verá solo su grupo)
+#
+# Además, "LARANDA" (RH – Luis Aranda) es el único que podrá generar monedas en WOR SGBS.
 # ================================
 valid_users = {
+    # R2R NAMER
     "VREYES": "Reyes Escorsia Victor Manuel",
     "RCRUZ": "Cruz Madariaga Rodrigo",
     "AZENTENO": "Zenteno Perez Alejandro",
     "XGUTIERREZ": "Gutierrez Hernandez Ximena",
     "CNAPOLES": "Napoles Escalante Christopher Enrique",
+    # R2R LATAM
     "MSANCHEZ": "Miriam Sanchez",
     "MHERNANDEZ": "Hernandez Ponce Maria Guadalupe",
     "MGARCIA": "Garcia Vazquez Mariana Aketzalli",
-    "ALECCION": "TL GL NAMER LATAM",  # TL para R2R (NAMER y LATAM)
     "PSARACHAGA": "Paula Sarachaga",
-    "WORLEAD": "TL WOR SGBS",         # TL para WOR SGBS
-    "LARANDA": "RH - Luis Aranda",     # Solo para generación de monedas en WOR SGBS
+    # TL R2R
+    "ALECCION": "TL GL NAMER LATAM",
+    # WOR SGBS
     "MLOPEZ": "Miguel Lopez",
     "GMAJORAL": "Guillermo Mayoral",
     "BOSNAYA": "Becerril Osnaya",
     "JTHIAGO": "Jose Thiago",
-    "IOROZCO": "Isaac Orozco"
+    "IOROZCO": "Isaac Orozco",
+    "WORLEAD": "TL WOR SGBS",
+    # RH para WOR SGBS (monedas)
+    "LARANDA": "RH - Luis Aranda",
+    # IC
+    "YALEDON": "Yael Ledon",
+    "ALOPEZV": "Antonio Lopez Vargas",
+    "BMANCHA": "Brisa de la Mancha Olvera",
+    "CCANDEL": "Carlos Candelas Ibarra",
+    "LEDHUME": "Luis Enrique Delhumeau Yanez",
+    "EIBANEZ": "Elizabeth Ibanez Martinez",
+    "ICLEAD": "TL IC",
+    # Fixed Assets
+    "ABARRERA": "Andres Barrera Jefe de área",
+    "GAVILES": "Gabriel Aviles",
+    "JLOPEZ": "Jesus Lopez",
+    "FALEAD": "TL Fixed Assets"
 }
 
-# Definición de grupos de área:
+# Definir grupos de área
 group_namer = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES"}
 group_latam  = {"MSANCHEZ", "MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
-group_wor    = {"MLOPEZ", "GMAJORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD"}
+group_wor    = {"MLOPEZ", "GMAJORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
+group_ic     = {"YALEDON", "ALOPEZV", "BMANCHA", "CCANDEL", "LEDHUME", "EIBANEZ", "ICLEAD"}
+group_fa     = {"ABARRERA", "GAVILES", "JLOPEZ", "FALEAD"}
 
 # ================================
 # Pantalla de Login
@@ -71,7 +97,7 @@ if st.session_state["user_code"] is None:
 # Función para agrupar tareas por área (según el primer usuario asignado)
 # ================================
 def group_tasks_by_area(tasks):
-    groups = {"NAMER": {}, "LATAM": {}, "WOR SGBS": {}, "Sin Región": {}}
+    groups = {"NAMER": {}, "LATAM": {}, "WOR SGBS": {}, "IC": {}, "Fixed Assets": {}, "Sin Región": {}}
     for task in tasks:
         data = task.to_dict()
         data["id"] = task.id  # Guardamos la ID
@@ -82,12 +108,16 @@ def group_tasks_by_area(tasks):
             primary = user
         else:
             primary = "Sin Usuario"
-        if primary in group_wor:
-            area = "WOR SGBS"
-        elif primary in group_namer:
+        if primary in group_namer:
             area = "NAMER"
         elif primary in group_latam:
             area = "LATAM"
+        elif primary in group_wor:
+            area = "WOR SGBS"
+        elif primary in group_ic:
+            area = "IC"
+        elif primary in group_fa:
+            area = "Fixed Assets"
         else:
             area = "Sin Región"
         if primary not in groups[area]:
@@ -143,9 +173,10 @@ def show_main_app():
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
     # --- Asignación de roles ---
+    # Solo TL de GL NAMER & LATAM ("ALECCION") asigna roles para su área
     if user_code == "ALECCION":
         if st.button("Asignar Roles (GL NAMER & LATAM)"):
-            posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA"}]
+            posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "ICLEAD", "FALEAD"}]
             roles_asignados = random.sample(posibles, 3)
             st.session_state["roles"] = {
                 "Timekeeper": roles_asignados[0],
@@ -154,9 +185,10 @@ def show_main_app():
             }
             st.success("Roles asignados para GL NAMER & LATAM:")
             st.json(st.session_state["roles"])
+    # TL de WOR SGBS ("WORLEAD")
     elif user_code == "WORLEAD":
         if st.button("Asignar Roles (WOR SGBS)"):
-            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA"} and code in group_wor]
+            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA", "ICLEAD", "FALEAD"} and code in group_wor]
             if len(posibles) >= 3:
                 roles_asignados = random.sample(posibles, 3)
                 st.session_state["roles"] = {
@@ -168,9 +200,39 @@ def show_main_app():
                 st.json(st.session_state["roles"])
             else:
                 st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
+    # TL de IC ("ICLEAD")
+    elif user_code == "ICLEAD":
+        if st.button("Asignar Roles (IC)"):
+            posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "FALEAD"} and code in group_ic]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.success("Roles asignados para IC:")
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en IC para asignar roles.")
+    # TL de Fixed Assets ("FALEAD")
+    elif user_code == "FALEAD":
+        if st.button("Asignar Roles (Fixed Assets)"):
+            posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "ICLEAD"} and code in group_fa]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.success("Roles asignados para Fixed Assets:")
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en Fixed Assets para asignar roles.")
 
     # --- Habilitar Start Timer ---
-    if user_code in {"ALECCION", "WORLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Timekeeper") == user_code):
+    if user_code in {"ALECCION", "WORLEAD", "ICLEAD", "FALEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Timekeeper") == user_code):
         if "timer_started" not in st.session_state:
             st.session_state.timer_started = False
         if not st.session_state.timer_started:
@@ -200,7 +262,7 @@ def show_main_app():
             """
             components.html(countdown_html, height=70)
     
-    # --- Colores para status ---
+    # --- Colores para status y función auxiliar ---
     status_colors = {
         "Pendiente": "red",
         "En proceso": "orange",
@@ -210,16 +272,13 @@ def show_main_app():
         return custom.strip() if custom and custom.strip() != "" else selected
 
     # --- Menú Principal ---
-    # Los TL ven el resumen de su área:
-    if user_code == "ALECCION":
-        main_menu = ["Asistencia Resumen", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
-    elif user_code == "WORLEAD":
+    if user_code in {"ALECCION", "WORLEAD", "ICLEAD", "FALEAD"}:
         main_menu = ["Asistencia Resumen", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
     else:
         main_menu = ["Asistencia", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
     
     extra_menu = ["Communications", "Calendar"]
-    if user_code in {"ALECCION", "WORLEAD"}:
+    if user_code in {"ALECCION", "WORLEAD", "ICLEAD", "FALEAD"}:
         extra_menu.extend(["Roles", "Compliance", "Todas las Tareas"])
     else:
         if "roles" in st.session_state:
@@ -271,13 +330,16 @@ def show_main_app():
             })
             st.success("Asistencia registrada correctamente.")
     
-    elif choice == "Asistencia Resumen" and user_code in {"ALECCION", "WORLEAD"}:
+    elif choice == "Asistencia Resumen" and user_code in {"ALECCION", "WORLEAD", "ICLEAD", "FALEAD"}:
         st.subheader("📊 Resumen de Asistencia")
-        # Para TL, filtramos según el área:
         if user_code == "ALECCION":
             attendees = [u for u in valid_users if u in group_namer or u in group_latam]
         elif user_code == "WORLEAD":
             attendees = [u for u in valid_users if u in group_wor]
+        elif user_code == "ICLEAD":
+            attendees = [u for u in valid_users if u in group_ic]
+        elif user_code == "FALEAD":
+            attendees = [u for u in valid_users if u in group_fa]
         for u in attendees:
             doc = db.collection("attendance").document(u).get()
             if doc.exists:
@@ -310,6 +372,26 @@ def show_main_app():
                 else:
                     primary = user_field
                 if primary in group_wor:
+                    tasks.append(task)
+        elif user_code == "ICLEAD":
+            for task in all_tasks:
+                data = task.to_dict()
+                user_field = data.get("usuario")
+                if isinstance(user_field, list):
+                    primary = user_field[0]
+                else:
+                    primary = user_field
+                if primary in group_ic:
+                    tasks.append(task)
+        elif user_code == "FALEAD":
+            for task in all_tasks:
+                data = task.to_dict()
+                user_field = data.get("usuario")
+                if isinstance(user_field, list):
+                    primary = user_field[0]
+                else:
+                    primary = user_field
+                if primary in group_fa:
                     tasks.append(task)
         else:
             tasks = list(db.collection("top3").where("usuario", "==", user_code).stream())
@@ -405,6 +487,26 @@ def show_main_app():
                 else:
                     primary = user_field
                 if primary in group_wor:
+                    actions.append(task)
+        elif user_code == "ICLEAD":
+            for task in all_actions:
+                data = task.to_dict()
+                user_field = data.get("usuario")
+                if isinstance(user_field, list):
+                    primary = user_field[0]
+                else:
+                    primary = user_field
+                if primary in group_ic:
+                    actions.append(task)
+        elif user_code == "FALEAD":
+            for task in all_actions:
+                data = task.to_dict()
+                user_field = data.get("usuario")
+                if isinstance(user_field, list):
+                    primary = user_field[0]
+                else:
+                    primary = user_field
+                if primary in group_fa:
                     actions.append(task)
         else:
             actions = list(db.collection("actions").where("usuario", "==", user_code).stream())
@@ -558,7 +660,7 @@ def show_main_app():
         if doc.exists:
             current_coins = doc.to_dict().get("coins", 0)
         st.write(f"**Saldo actual:** {current_coins} DB COINS")
-        # Solo LARANDA (RH) puede generar monedas manualmente.
+        # Solo LARANDA (RH) tiene opción de generar monedas manualmente
         if user_code == "LARANDA":
             add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
             if st.button("Generar DB COINS"):
@@ -668,7 +770,7 @@ def show_main_app():
             st.subheader("📝 Asignación de Roles Semanal - GL NAMER & LATAM")
             st.write("Pulsa el botón para asignar roles (Timekeeper, ActionTaker y Coach) para GL NAMER & LATAM.")
             if st.button("Asignar Roles"):
-                posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA"}]
+                posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "ICLEAD", "FALEAD"}]
                 roles_asignados = random.sample(posibles, 3)
                 st.session_state["roles"] = {
                     "Timekeeper": roles_asignados[0],
@@ -680,7 +782,7 @@ def show_main_app():
         elif user_code == "WORLEAD":
             st.subheader("📝 Asignación de Roles Semanal - WOR SGBS")
             st.write("Pulsa el botón para asignar roles (Timekeeper, ActionTaker y Coach) para WOR SGBS.")
-            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA"} and code in group_wor]
+            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA", "ICLEAD", "FALEAD"} and code in group_wor]
             if len(posibles) >= 3:
                 roles_asignados = random.sample(posibles, 3)
                 st.session_state["roles"] = {
@@ -692,12 +794,42 @@ def show_main_app():
                 st.json(st.session_state["roles"])
             else:
                 st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
+        elif user_code == "ICLEAD":
+            st.subheader("📝 Asignación de Roles Semanal - IC")
+            st.write("Pulsa el botón para asignar roles (Timekeeper, ActionTaker y Coach) para IC.")
+            posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "FALEAD"} and code in group_ic]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.success("Roles asignados para IC:")
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en IC para asignar roles.")
+        elif user_code == "FALEAD":
+            st.subheader("📝 Asignación de Roles Semanal - Fixed Assets")
+            st.write("Pulsa el botón para asignar roles (Timekeeper, ActionTaker y Coach) para Fixed Assets.")
+            posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "ICLEAD"} and code in group_fa]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.success("Roles asignados para Fixed Assets:")
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en Fixed Assets para asignar roles.")
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para los TL.")
     
     # ------------- Compliance -------------
     elif choice == "Compliance":
-        if user_code in {"ALECCION", "WORLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
+        if user_code in {"ALECCION", "WORLEAD", "ICLEAD", "FALEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
             st.subheader("📝 Compliance - Feedback")
             st.write("Selecciona a quién dar feedback y escribe tu comentario.")
             feedback_options = [code for code in valid_users if code != user_code]
@@ -775,3 +907,18 @@ show_main_app()
 #   IOROZCO   -> Isaac Orozco
 #   WORLEAD   -> TL WOR SGBS
 #   LARANDA   -> RH - Luis Aranda (solo para generación de monedas)
+#
+# IC:
+#   YALEDON   -> Yael Ledon
+#   ALOPEZV   -> Antonio Lopez Vargas
+#   BMANCHA   -> Brisa de la Mancha Olvera
+#   CCANDEL   -> Carlos Candelas Ibarra
+#   LEDHUME   -> Luis Enrique Delhumeau Yanez
+#   EIBANEZ   -> Elizabeth Ibanez Martinez
+#   ICLEAD    -> TL IC
+#
+# Fixed Assets:
+#   ABARRERA  -> Andres Barrera Jefe de área
+#   GAVILES   -> Gabriel Aviles
+#   JLOPEZ    -> Jesus Lopez
+#   FALEAD    -> TL Fixed Assets
