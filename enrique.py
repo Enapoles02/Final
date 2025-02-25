@@ -8,7 +8,6 @@ import json, random
 # ================================
 # Definición de usuarios y áreas
 # ================================
-# Los códigos son arbitrarios (deben ser únicos) y se usan para agrupar a cada usuario.
 valid_users = {
     # R2R NAMER:
     "VREYES": "Reyes Escorsia Victor Manuel",
@@ -48,7 +47,6 @@ valid_users = {
     "ICLEAD": "TL IC"
 }
 
-# Definición de grupos (conjuntos de códigos) para cada área:
 group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES"}
 group_latam    = {"MSANCHEZ", "MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL"}
@@ -64,7 +62,7 @@ if "user_code" not in st.session_state:
 
 def show_login():
     st.title("🔥 Daily Huddle - Login")
-    st.write("Ingresa tu código de usuario")
+    st.write("Ingresa tu código de usuario (ej.: CNAPOLES, R2RGRAL, WORLEAD, FALEAD, ICLEAD, etc.)")
     user_input = st.text_input("Código de usuario:", max_chars=20)
     if st.button("Ingresar"):
         user_input = user_input.strip().upper()
@@ -97,7 +95,7 @@ def group_tasks_by_area(tasks):
     }
     for task in tasks:
         data = task.to_dict()
-        data["id"] = task.id  # Guardamos la ID
+        data["id"] = task.id
         user = data.get("usuario")
         if isinstance(user, list) and len(user) > 0:
             primary = user[0]
@@ -133,13 +131,32 @@ activity_repo = [
     "Análisis de desempeño trimestral",
     "Sesión de brainstorming para innovación"
 ]
+
+# ================================
+# Inicialización de Firebase usando secrets (TOML)
+# ================================
+def init_firebase():
+    firebase_config = st.secrets["firebase"]
+    if not isinstance(firebase_config, dict):
+        firebase_config = firebase_config.to_dict()
+    try:
+        cred = credentials.Certificate(firebase_config)
+        if not firebase_admin._apps:
+            firebase_admin.initialize_app(cred)
+        db = firestore.client()
+        return db
+    except Exception as e:
+        st.error(f"Error al inicializar Firebase: {e}")
+        st.stop()
+
+db = init_firebase()
+
 # ================================
 # App Principal
 # ================================
 def show_main_app():
     user_code = st.session_state["user_code"]
 
-    # --- Imagen de portada ---
     st.image(
         "http://bulk-distributor.com/wp-content/uploads/2016/01/DB-Schenker-Hub-Salzburg.jpg",
         caption="DB Schenker",
@@ -159,7 +176,6 @@ def show_main_app():
                 "ActionTaker": roles_asignados[1],
                 "Coach": roles_asignados[2]
             }
-            st.success("Roles asignados para GL NAMER & LATAM:")
             st.json(st.session_state["roles"])
     elif user_code == "WORLEAD":
         if st.button("Asignar Roles (WOR SGBS)"):
@@ -171,7 +187,6 @@ def show_main_app():
                     "ActionTaker": roles_asignados[1],
                     "Coach": roles_asignados[2]
                 }
-                st.success("Roles asignados para WOR SGBS:")
                 st.json(st.session_state["roles"])
             else:
                 st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
@@ -184,7 +199,6 @@ def show_main_app():
                     "Timekeeper": roles_asignados[0],
                     "ActionTaker": roles_asignados[1]
                 }
-                st.success("Roles asignados para R2R GRAL:")
                 st.json(st.session_state["roles"])
             else:
                 st.error("No hay suficientes usuarios en R2R GRAL para asignar roles.")
@@ -197,7 +211,6 @@ def show_main_app():
                     "Timekeeper": roles_asignados[0],
                     "ActionTaker": roles_asignados[1]
                 }
-                st.success("Roles asignados para FA:")
                 st.json(st.session_state["roles"])
             else:
                 st.error("No hay suficientes usuarios en FA para asignar roles.")
@@ -211,7 +224,6 @@ def show_main_app():
                     "ActionTaker": roles_asignados[1],
                     "Coach": roles_asignados[2]
                 }
-                st.success("Roles asignados para IC:")
                 st.json(st.session_state["roles"])
             else:
                 st.error("No hay suficientes usuarios en IC para asignar roles.")
@@ -247,7 +259,6 @@ def show_main_app():
             """
             components.html(countdown_html, height=70)
     
-    # --- Colores para status ---
     status_colors = {
         "Pendiente": "red",
         "En proceso": "orange",
@@ -256,7 +267,6 @@ def show_main_app():
     def get_status(selected, custom):
         return custom.strip() if custom and custom.strip() != "" else selected
 
-    # --- Menú Principal ---
     if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"}:
         main_menu = ["Asistencia Resumen", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet"]
     else:
@@ -275,7 +285,6 @@ def show_main_app():
 
     choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", menu_options)
     
-    # ------------- Asistencia / Asistencia Resumen -------------
     if choice == "Asistencia":
         st.subheader("📝 Registro de Asistencia")
         today_date = datetime.now().strftime("%Y-%m-%d")
@@ -337,7 +346,6 @@ def show_main_app():
                 st.write(f"Fecha: {data.get('fecha','')}, Estado: {data.get('estado_animo','')}, Salud: {data.get('problema_salud','')}, Energía: {data.get('energia','')}")
                 st.markdown("---")
     
-    # ------------- Top 3 -------------
     elif choice == "Top 3":
         st.subheader("📌 Top 3 Prioridades - Resumen")
         all_tasks = list(db.collection("top3").stream())
@@ -462,7 +470,6 @@ def show_main_app():
                 st.success("Tarea de Top 3 guardada.")
                 st.session_state.show_top3_form = False
     
-    # ------------- Action Board -------------
     elif choice == "Action Board":
         st.subheader("✅ Acciones y Seguimiento - Resumen")
         all_actions = list(db.collection("actions").stream())
@@ -583,11 +590,9 @@ def show_main_app():
                 st.success("Acción guardada.")
                 st.session_state.show_action_form = False
     
-    # ------------- Escalation -------------
     elif choice == "Escalation":
         st.subheader("⚠️ Escalation")
         escalador = user_code
-        # Para "¿Para quién?" se limita a: MLOPEZ, MSANCHEZ y GMAJORAL
         para_quien = st.selectbox("¿Para quién?", ["MLOPEZ", "MSANCHEZ", "GMAJORAL"], format_func=lambda x: valid_users[x])
         with st.form("escalation_form"):
             razon = st.text_area("Razón")
@@ -626,7 +631,6 @@ def show_main_app():
         if count == 0:
             st.info("No tienes escalaciones asignadas.")
     
-    # ------------- Recognition -------------
     elif choice == "Recognition":
         st.subheader("🎉 Recognition")
         with st.form("recognition_form"):
@@ -644,7 +648,6 @@ def show_main_app():
             })
             st.success("Reconocimiento enviado.")
     
-    # ------------- Store DBSCHENKER -------------
     elif choice == "Store DBSCHENKER":
         st.subheader("🛍️ Store DBSCHENKER")
         st.write("Productos corporativos (prototipo):")
@@ -660,7 +663,6 @@ def show_main_app():
                 st.info("Función de compra no implementada.")
             st.markdown("---")
     
-    # ------------- Wallet -------------
     elif choice == "Wallet":
         st.subheader("💰 Mi Wallet (DB COINS)")
         wallet_ref = db.collection("wallets").document(user_code)
@@ -669,7 +671,6 @@ def show_main_app():
         if doc.exists:
             current_coins = doc.to_dict().get("coins", 0)
         st.write(f"**Saldo actual:** {current_coins} DB COINS")
-        # Solo LARANDA (RH - Luis Aranda) puede generar monedas manualmente.
         if user_code == "LARANDA":
             add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
             if st.button("Generar DB COINS"):
@@ -679,11 +680,9 @@ def show_main_app():
             st.markdown("### Funciones Administrativas")
             admin_key = st.text_input("Clave Admin", type="password")
             if admin_key == "ADMIN123":
-                st.info("Clave Admin válida. Funciones habilitadas.")
                 if st.button("Resetear todas las monedas a 0"):
                     for u in valid_users:
                         db.collection("wallets").document(u).set({"coins": 0})
-                    st.success("Todas las monedas han sido reiniciadas a 0.")
                 target = st.selectbox("Generar monedas para el usuario:", list(valid_users.keys()), format_func=lambda x: valid_users[x])
                 amt = st.number_input("Cantidad de DB COINS a generar:", min_value=1, step=1, value=10)
                 if st.button("Generar para usuario seleccionado"):
@@ -695,7 +694,6 @@ def show_main_app():
                     target_ref.set({"coins": current + amt})
                     st.success(f"Generados {amt} DB COINS para {valid_users[target]}.")
     
-    # ------------- Communications -------------
     elif choice == "Communications":
         st.subheader("📢 Mensajes Importantes")
         mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
@@ -707,7 +705,6 @@ def show_main_app():
             })
             st.success("Mensaje enviado.")
     
-    # ------------- Calendar -------------
     elif choice == "Calendar":
         st.subheader("📅 Calendario")
         cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
@@ -773,7 +770,6 @@ def show_main_app():
             """
             components.html(calendar_html, height=600, scrolling=True)
     
-    # ------------- Roles -------------
     elif choice == "Roles":
         if user_code == "ALECCION":
             st.subheader("📝 Asignación de Roles Semanal - GL NAMER & LATAM")
@@ -785,7 +781,6 @@ def show_main_app():
                     "ActionTaker": roles_asignados[1],
                     "Coach": roles_asignados[2]
                 }
-                st.success("Roles asignados para GL NAMER & LATAM:")
                 st.json(st.session_state["roles"])
         elif user_code == "WORLEAD":
             st.subheader("📝 Asignación de Roles Semanal - WOR SGBS")
@@ -797,7 +792,6 @@ def show_main_app():
                     "ActionTaker": roles_asignados[1],
                     "Coach": roles_asignados[2]
                 }
-                st.success("Roles asignados para WOR SGBS:")
                 st.json(st.session_state["roles"])
             else:
                 st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
@@ -810,7 +804,6 @@ def show_main_app():
                     "Timekeeper": roles_asignados[0],
                     "ActionTaker": roles_asignados[1]
                 }
-                st.success("Roles asignados para R2R GRAL:")
                 st.json(st.session_state["roles"])
             else:
                 st.error("No hay suficientes usuarios en R2R GRAL para asignar roles.")
@@ -823,7 +816,6 @@ def show_main_app():
                     "Timekeeper": roles_asignados[0],
                     "ActionTaker": roles_asignados[1]
                 }
-                st.success("Roles asignados para FA:")
                 st.json(st.session_state["roles"])
             else:
                 st.error("No hay suficientes usuarios en FA para asignar roles.")
@@ -837,14 +829,12 @@ def show_main_app():
                     "ActionTaker": roles_asignados[1],
                     "Coach": roles_asignados[2]
                 }
-                st.success("Roles asignados para IC:")
                 st.json(st.session_state["roles"])
             else:
                 st.error("No hay suficientes usuarios en IC para asignar roles.")
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para los TL.")
     
-    # ------------- Compliance -------------
     elif choice == "Compliance":
         if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
             st.subheader("📝 Compliance - Feedback")
@@ -862,7 +852,6 @@ def show_main_app():
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para los TL o el Coach.")
     
-    # ------------- Todas las Tareas -------------
     elif choice == "Todas las Tareas":
         st.subheader("🗂️ Todas las Tareas")
         st.markdown("### Tareas de Top 3")
