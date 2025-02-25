@@ -37,7 +37,10 @@ def show_login():
         if user_input in valid_users:
             st.session_state.user_code = user_input
             st.success(f"¡Bienvenido, {valid_users[user_input]}!")
-            st.experimental_rerun()
+            try:
+                st.experimental_rerun()
+            except Exception:
+                pass
         else:
             st.error("Código de usuario inválido. Intenta nuevamente.")
 
@@ -100,11 +103,11 @@ def show_main_app():
     st.title("🔥 Daily Huddle")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
-    # --- Asignación de roles (solo TL) ---
+    # --- Asignación de roles (solo TL puede asignar roles) ---
     if user_code == "ALECCION":
         if st.button("Asignar Roles"):
             posibles = [code for code in valid_users if code != "ALECCION"]
-            roles_asignados = random.sample(posibles, 3)
+            roles_asignados = random.sample(posibles, 3)  # Roles únicos
             st.session_state["roles"] = {
                 "Timekeeper": roles_asignados[0],
                 "ActionTaker": roles_asignados[1],
@@ -113,7 +116,7 @@ def show_main_app():
             st.success("Nuevos roles asignados:")
             st.json(st.session_state["roles"])
     
-    # --- Habilitar Start Timer (TL o Timekeeper) ---
+    # --- Habilitar Start Timer (solo para TL o Timekeeper) ---
     can_start_timer = (user_code == "ALECCION" or 
                        ("roles" in st.session_state and st.session_state["roles"].get("Timekeeper") == user_code))
     if can_start_timer:
@@ -159,7 +162,7 @@ def show_main_app():
         st.error(f"Error al inicializar Firebase: {e}")
         st.stop()
     
-    # --- Colores para status ---
+    # --- Diccionario de colores para status ---
     status_colors = {
         "Pendiente": "red",
         "En proceso": "orange",
@@ -256,12 +259,11 @@ def show_main_app():
                     status_val = task_data.get('status','')
                     color = status_colors.get(status_val, "black")
                     st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
-                    # Botones para editar status y eliminar la tarea
+                    # Sección para editar status y eliminar
                     new_status = st.selectbox(
                         "Editar status",
                         ["Pendiente", "En proceso", "Completado"],
-                        index=(["Pendiente", "En proceso", "Completado"].index(status_val)
-                               if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
+                        index=(["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
                         key=f"top3_status_{task_data.get('id')}"
                     )
                     custom_status = st.text_input("Status personalizado (opcional)", key=f"top3_custom_{task_data.get('id')}")
@@ -334,12 +336,11 @@ def show_main_app():
                     status_val = act_data.get('status','')
                     color = status_colors.get(status_val, "black")
                     st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
-                    # Botones para actualizar status y eliminar
+                    # Botones para editar status y eliminar
                     new_status = st.selectbox(
                         "Editar status",
                         ["Pendiente", "En proceso", "Completado"],
-                        index=(["Pendiente", "En proceso", "Completado"].index(status_val)
-                               if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
+                        index=(["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
                         key=f"action_status_{act_data.get('id')}"
                     )
                     custom_status = st.text_input("Status personalizado (opcional)", key=f"action_custom_{act_data.get('id')}")
