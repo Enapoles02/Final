@@ -4,6 +4,7 @@ from firebase_admin import credentials, firestore
 from datetime import datetime, date
 import streamlit.components.v1 as components
 import json, random
+import pandas as pd
 
 # ================================
 # Definición de usuarios y áreas
@@ -15,12 +16,11 @@ valid_users = {
     "AZENTENO": "Zenteno Perez Alejandro",
     "XGUTIERREZ": "Gutierrez Hernandez Ximena",
     "CNAPOLES": "Napoles Escalante Christopher Enrique",
-    # R2R LATAM (retiramos a Miriam Sanchez de este grupo)
+    # R2R LATAM:
+    # (Miriam Sanchez se retira de este grupo)
     "MHERNANDEZ": "Hernandez Ponce Maria Guadalupe",
     "MGARCIA": "Garcia Vazquez Mariana Aketzalli",
     "PSARACHAGA": "Paula Sarachaga",
-    # Aunque Miriam Sanchez sigue registrada, se usará en el grupo general (R2R GRAL)
-    "MSANCHEZ": "Miriam Sanchez",
     # TL para GL NAMER & LATAM:
     "ALECCION": "TL GL NAMER LATAM",
     # R2R GRAL:
@@ -28,6 +28,7 @@ valid_users = {
     "MIRIAMGRAL": "Miriam GRAL",
     "YAEL": "Yael",
     "R2RGRAL": "TL R2R GRAL",
+    "MSANCHEZ": "Miriam Sanchez",  # Ahora en grupo R2R GRAL
     # WOR SGBS:
     "MLOPEZ": "Miguel Lopez",
     "GMAJORAL": "Guillermo Mayoral",
@@ -49,10 +50,9 @@ valid_users = {
     "ICLEAD": "TL IC"
 }
 
-# Actualizamos el grupo LATAM para no incluir a "MSANCHEZ"
 group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES"}
 group_latam    = {"MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
-group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}  # Miriam Sanchez se asigna a R2R GRAL
+group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
 group_wor      = {"MLOPEZ", "GMAJORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
 group_fa       = {"GAVILES", "JLOPEZ", "FALEAD", "ABARRERA"}
 group_ic       = {"CCIBARRA", "LEDYANEZ", "EIMARTINEZ", "ICLEAD"}
@@ -65,7 +65,7 @@ if "user_code" not in st.session_state:
 
 def show_login():
     st.title("🔥 Daily Huddle - Login")
-    st.write("Ingresa tu código de usuario")
+    st.write("Ingresa tu código de usuario (ej.: CNAPOLES, R2RGRAL, WORLEAD, FALEAD, ICLEAD, etc.)")
     user_input = st.text_input("Código de usuario:", max_chars=20)
     if st.button("Ingresar"):
         user_input = user_input.strip().upper()
@@ -186,11 +186,10 @@ def show_main_app():
     st.title("🔥 Daily Huddle")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     
-    # Menú principal
     menu_choice = st.sidebar.selectbox("📌 Selecciona una pestaña:", 
                                          ["Asistencia", "Top 3", "Action Board", "Escalation", "Recognition", "Store DBSCHENKER", "Wallet", "Communications", "Calendar", "Roles", "Compliance", "Todas las Tareas"])
     
-    # ------------------- Asistencia con gráfica -------------------
+    # ------------------- Asistencia -------------------
     if menu_choice == "Asistencia":
         st.subheader("📝 Registro de Asistencia")
         today_date = datetime.now().strftime("%Y-%m-%d")
@@ -210,13 +209,16 @@ def show_main_app():
         }
         selected_feeling = st.radio("Selecciona tu estado de ánimo:", list(feelings.keys()))
         health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
-        st.write("Nivel de energía:")
-        energy_options = ["Nivel 1", "Nivel 2", "Nivel 3", "Nivel 4", "Nivel 5"]
-        energy_level = st.radio("Selecciona tu nivel de energía:", options=energy_options, horizontal=True)
-        level_mapping = {"Nivel 1": 20, "Nivel 2": 40, "Nivel 3": 60, "Nivel 4": 80, "Nivel 5": 100}
-        fill_percent = level_mapping[energy_level]
-        st.progress(fill_percent/100)  # Barra de progreso gráfica
-        st.write(f"Nivel de energía: {energy_level}")
+        st.write("Nivel de energía (elige 10, 20, 30, 40 o 50):")
+        energy_options = [10, 20, 30, 40, 50]
+        energy_level = st.radio("Nivel de energía:", options=energy_options, horizontal=True)
+        # Representación en forma de "batería" (barra vertical)
+        battery_html = f"""
+        <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px; position: relative;">
+          <div style="position: absolute; bottom: 0; width: 100%; height: {energy_level}%; background-color: #00ff00;"></div>
+        </div>
+        """
+        st.markdown(battery_html, unsafe_allow_html=True)
         if st.button("✅ Registrar asistencia"):
             db.collection("attendance").document(user_code).set({
                 "fecha": today_date,
@@ -225,6 +227,36 @@ def show_main_app():
                 "energia": energy_level
             })
             st.success("Asistencia registrada correctamente.")
+    
+    # ------------------- Asistencia Resumen para TL -------------------
+    elif menu_choice == "Asistencia" and user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"}:
+        # Si TL desea ver resumen, se puede agregar una pestaña adicional (aquí se usa "Asistencia" para fines de ejemplo)
+        st.subheader("📊 Resumen de Asistencia (Gráfico)")
+        # Filtrar registros según el grupo del TL
+        if user_code == "ALECCION":
+            team = [u for u in valid_users if u in group_namer or u in group_latam]
+        elif user_code == "WORLEAD":
+            team = [u for u in valid_users if u in group_wor]
+        elif user_code == "R2RGRAL":
+            team = [u for u in valid_users if u in group_r2r_gral]
+        elif user_code == "FALEAD":
+            team = [u for u in valid_users if u in group_fa]
+        elif user_code == "ICLEAD":
+            team = [u for u in valid_users if u in group_ic]
+        else:
+            team = [user_code]
+        data_list = []
+        for u in team:
+            doc = db.collection("attendance").document(u).get()
+            if doc.exists:
+                info = doc.to_dict()
+                energy = info.get("energia", 0)
+                data_list.append({"Usuario": valid_users.get(u, u), "Energía": energy})
+        if data_list:
+            df = pd.DataFrame(data_list)
+            st.bar_chart(df.set_index("Usuario"))
+        else:
+            st.info("No hay datos de asistencia para mostrar.")
     
     # ------------------- Top 3 -------------------
     elif menu_choice == "Top 3":
@@ -332,6 +364,7 @@ def show_main_app():
                 st.success("Tarea de Top 3 guardada.")
                 st.session_state.show_top3_form = False
     
+    # ------------------- Action Board -------------------
     elif menu_choice == "Action Board":
         st.subheader("✅ Acciones y Seguimiento - Resumen")
         all_actions = list(db.collection("actions").stream())
@@ -435,10 +468,10 @@ def show_main_app():
                 st.success("Acción guardada.")
                 st.session_state.show_action_form = False
     
+    # ------------------- Escalation -------------------
     elif menu_choice == "Escalation":
         st.subheader("⚠️ Escalation")
         escalador = user_code
-        # Construir la lista de "para quién" según el área del escalador:
         common_options = {"MLOPEZ", "GMAJORAL", "LARANDA"}
         if user_code in group_fa:
             additional = {"ABARRERA"}
@@ -488,14 +521,15 @@ def show_main_app():
         if count == 0:
             st.info("No tienes escalaciones asignadas.")
     
+    # ------------------- Recognition -------------------
     elif menu_choice == "Recognition":
         st.subheader("🎉 Recognition")
         with st.form("recognition_form"):
             st.markdown(f"**De:** {valid_users[user_code]} ({user_code})")
-            # Seleccionar destinatario desde la lista de usuarios activos (excluyendo al usuario actual)
+            # Seleccionar destinatario de la lista de usuarios activos (excluyendo el usuario actual)
             destinatario = st.selectbox("Para:", [code for code in valid_users if code != user_code],
                                           format_func=lambda x: f"{valid_users[x]} ({x})")
-            # Determinar el jefe directo basado en el grupo del destinatario
+            # Determinar jefe directo del destinatario
             jefe_directo = get_direct_boss(destinatario)
             st.markdown(f"**Jefe Directo:** {valid_users.get(jefe_directo, jefe_directo)} ({jefe_directo})")
             kudo_options = [
@@ -522,6 +556,7 @@ def show_main_app():
             st.success("Recognition registrada correctamente.")
             st.warning(f"Notificación: Se ha enviado un Recognition a {valid_users.get(destinatario, destinatario)}.")
     
+    # ------------------- Store DBSCHENKER -------------------
     elif menu_choice == "Store DBSCHENKER":
         st.subheader("🛍️ Store DBSCHENKER")
         st.write("Productos corporativos (prototipo):")
@@ -537,6 +572,7 @@ def show_main_app():
                 st.info("Función de compra no implementada.")
             st.markdown("---")
     
+    # ------------------- Wallet -------------------
     elif menu_choice == "Wallet":
         st.subheader("💰 Mi Wallet (DB COINS)")
         wallet_ref = db.collection("wallets").document(user_code)
@@ -568,6 +604,7 @@ def show_main_app():
                     target_ref.set({"coins": current + amt})
                     st.success(f"Generados {amt} DB COINS para {valid_users[target]}.")
     
+    # ------------------- Communications -------------------
     elif menu_choice == "Communications":
         st.subheader("📢 Mensajes Importantes")
         mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
@@ -579,254 +616,13 @@ def show_main_app():
             })
             st.success("Mensaje enviado.")
     
+    # ------------------- Calendar -------------------
     elif menu_choice == "Calendar":
         st.subheader("📅 Calendario")
         cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
         if cal_option == "Crear Evento":
             st.markdown("### Crear Evento")
             evento = st.text_input("📌 Nombre del evento")
-            # Selección de rango de fechas para el evento
-            start_date, end_date = st.date_input("Selecciona el rango de fechas", value=(date.today(), date.today()))
-            tipo_evento = st.radio("Tipo de evento", ["Público", "Privado"])
-            if st.button("✅ Agendar evento"):
-                event_data = {
-                    "usuario": user_code,
-                    "evento": evento,
-                    "fecha": start_date.strftime("%Y-%m-%d"),  # Se guarda la fecha de inicio
-                    "fecha_fin": end_date.strftime("%Y-%m-%d"),
-                    "publico": True if tipo_evento == "Público" else False
-                }
-                db.collection("calendar").document().set(event_data)
-                st.success("Evento agendado.")
-        else:
-            # Permitir filtrar eventos por un rango de fechas
-            st.markdown("### Ver Calendario")
-            start_date, end_date = st.date_input("Selecciona el rango de fechas para ver eventos", value=(date.today(), date.today()))
-            events = []
-            for doc in db.collection("calendar").stream():
-                data = doc.to_dict()
-                event_date = datetime.strptime(data.get("fecha"), "%Y-%m-%d").date() if data.get("fecha") else None
-                if event_date and start_date <= event_date <= end_date:
-                    title = data.get("evento", "Evento")
-                    if not data.get("publico", False):
-                        title += f" (Privado - {data.get('usuario','')})"
-                    events.append({
-                        "title": title,
-                        "start": data.get("fecha")
-                    })
-            events_json = json.dumps(events)
-            calendar_html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset='utf-8' />
-              <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
-              <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
-              <style>
-                body {{
-                  margin: 0;
-                  padding: 0;
-                }}
-                #calendar {{
-                  max-width: 900px;
-                  margin: 40px auto;
-                }}
-              </style>
-            </head>
-            <body>
-              <div id='calendar'></div>
-              <script>
-                document.addEventListener('DOMContentLoaded', function() {{
-                  var calendarEl = document.getElementById('calendar');
-                  var calendar = new FullCalendar.Calendar(calendarEl, {{
-                    initialView: 'dayGridMonth',
-                    events: {events_json}
-                  }});
-                  calendar.render();
-                }});
-              </script>
-            </body>
-            </html>
-            """
-            components.html(calendar_html, height=600, scrolling=True)
-    
-    elif menu_choice == "Roles":
-        if user_code == "ALECCION":
-            st.subheader("📝 Asignación de Roles Semanal - GL NAMER & LATAM")
-            if st.button("Asignar Roles"):
-                posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"}]
-                roles_asignados = random.sample(posibles, 3)
-                st.session_state["roles"] = {
-                    "Timekeeper": roles_asignados[0],
-                    "ActionTaker": roles_asignados[1],
-                    "Coach": roles_asignados[2]
-                }
-                st.json(st.session_state["roles"])
-        elif user_code == "WORLEAD":
-            st.subheader("📝 Asignación de Roles Semanal - WOR SGBS")
-            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"} and code in group_wor]
-            if len(posibles) >= 3:
-                roles_asignados = random.sample(posibles, 3)
-                st.session_state["roles"] = {
-                    "Timekeeper": roles_asignados[0],
-                    "ActionTaker": roles_asignados[1],
-                    "Coach": roles_asignados[2]
-                }
-                st.json(st.session_state["roles"])
-            else:
-                st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
-        elif user_code == "R2RGRAL":
-            st.subheader("📝 Asignación de Roles Semanal - R2R GRAL")
-            posibles = [code for code in valid_users if code not in {"R2RGRAL", "ALECCION", "WORLEAD", "LARANDA", "FALEAD", "ICLEAD"} and code in group_r2r_gral]
-            if len(posibles) >= 2:
-                roles_asignados = random.sample(posibles, 2)
-                st.session_state["roles"] = {
-                    "Timekeeper": roles_asignados[0],
-                    "ActionTaker": roles_asignados[1]
-                }
-                st.json(st.session_state["roles"])
-            else:
-                st.error("No hay suficientes usuarios en R2R GRAL para asignar roles.")
-        elif user_code == "FALEAD":
-            st.subheader("📝 Asignación de Roles Semanal - FA")
-            posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "ICLEAD"} and code in group_fa]
-            if len(posibles) >= 2:
-                roles_asignados = random.sample(posibles, 2)
-                st.session_state["roles"] = {
-                    "Timekeeper": roles_asignados[0],
-                    "ActionTaker": roles_asignados[1]
-                }
-                st.json(st.session_state["roles"])
-            else:
-                st.error("No hay suficientes usuarios en FA para asignar roles.")
-        elif user_code == "ICLEAD":
-            st.subheader("📝 Asignación de Roles Semanal - IC")
-            posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD"} and code in group_ic]
-            if len(posibles) >= 3:
-                roles_asignados = random.sample(posibles, 3)
-                st.session_state["roles"] = {
-                    "Timekeeper": roles_asignados[0],
-                    "ActionTaker": roles_asignados[1],
-                    "Coach": roles_asignados[2]
-                }
-                st.json(st.session_state["roles"])
-            else:
-                st.error("No hay suficientes usuarios en IC para asignar roles.")
-        else:
-            st.error("Acceso denegado. Esta opción es exclusiva para los TL.")
-    
-    elif menu_choice == "Compliance":
-        if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
-            st.subheader("📝 Compliance - Feedback")
-            feedback_options = [code for code in valid_users if code != user_code]
-            target_user = st.selectbox("Dar feedback a:", feedback_options, format_func=lambda x: f"{valid_users.get(x, x)} ({x})")
-            feedback = st.text_area("Feedback:")
-            if st.button("Enviar Feedback"):
-                db.collection("compliance").add({
-                    "from": user_code,
-                    "to": target_user,
-                    "feedback": feedback,
-                    "fecha": datetime.now().strftime("%Y-%m-%d")
-                })
-                st.success("Feedback enviado.")
-        else:
-            st.error("Acceso denegado. Esta opción es exclusiva para los TL o el Coach.")
-    
-    elif menu_choice == "Todas las Tareas":
-        st.subheader("🗂️ Todas las Tareas")
-        st.markdown("### Tareas de Top 3")
-        tasks_top3 = list(db.collection("top3").stream())
-        if tasks_top3:
-            for task in tasks_top3:
-                task_data = task.to_dict()
-                st.markdown(f"**[TOP 3] {task_data.get('descripcion','(Sin descripción)')}**")
-                st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
-                st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
-                status = task_data.get('status', '')
-                color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
-                st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
-                st.markdown("---")
-        else:
-            st.info("No hay tareas de Top 3 registradas.")
-        st.markdown("### Tareas de Action Board")
-        tasks_actions = list(db.collection("actions").stream())
-        if tasks_actions:
-            for action in tasks_actions:
-                action_data = action.to_dict()
-                st.markdown(f"**[Action Board] {action_data.get('accion','(Sin descripción)')}**")
-                st.write(f"Inicio: {action_data.get('fecha_inicio','')}, Compromiso: {action_data.get('fecha_compromiso','')}, Real: {action_data.get('fecha_real','')}")
-                st.markdown(f"**Usuario:** {action_data.get('usuario','')}")
-                status = action_data.get('status', '')
-                color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
-                st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
-                st.markdown("---")
-        else:
-            st.info("No hay acciones registradas.")
-    
-    elif menu_choice == "Store DBSCHENKER":
-        st.subheader("🛍️ Store DBSCHENKER")
-        st.write("Productos corporativos (prototipo):")
-        products = [
-            {"name": "Taza DBS", "price": 10, "image": "https://via.placeholder.com/150?text=Taza+DBS"},
-            {"name": "Playera DBS", "price": 20, "image": "https://via.placeholder.com/150?text=Playera+DBS"},
-            {"name": "Gorra DBS", "price": 15, "image": "https://via.placeholder.com/150?text=Gorra+DBS"}
-        ]
-        for prod in products:
-            st.image(prod["image"], width=150)
-            st.markdown(f"**{prod['name']}** - {prod['price']} DB COINS")
-            if st.button(f"Comprar {prod['name']}", key=f"buy_{prod['name']}"):
-                st.info("Función de compra no implementada.")
-            st.markdown("---")
-    
-    elif menu_choice == "Wallet":
-        st.subheader("💰 Mi Wallet (DB COINS)")
-        wallet_ref = db.collection("wallets").document(user_code)
-        doc = wallet_ref.get()
-        current_coins = 0
-        if doc.exists:
-            current_coins = doc.to_dict().get("coins", 0)
-        st.write(f"**Saldo actual:** {current_coins} DB COINS")
-        if user_code == "LARANDA":
-            add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
-            if st.button("Generar DB COINS"):
-                new_balance = current_coins + add_coins
-                wallet_ref.set({"coins": new_balance})
-                st.success(f"Generados {add_coins} DB COINS. Nuevo saldo: {new_balance}.")
-            st.markdown("### Funciones Administrativas")
-            admin_key = st.text_input("Clave Admin", type="password")
-            if admin_key == "ADMIN123":
-                if st.button("Resetear todas las monedas a 0"):
-                    for u in valid_users:
-                        db.collection("wallets").document(u).set({"coins": 0})
-                target = st.selectbox("Generar monedas para el usuario:", list(valid_users.keys()), format_func=lambda x: f"{valid_users[x]} ({x})")
-                amt = st.number_input("Cantidad de DB COINS a generar:", min_value=1, step=1, value=10)
-                if st.button("Generar para usuario seleccionado"):
-                    target_ref = db.collection("wallets").document(target)
-                    doc_target = target_ref.get()
-                    current = 0
-                    if doc_target.exists:
-                        current = doc_target.to_dict().get("coins", 0)
-                    target_ref.set({"coins": current + amt})
-                    st.success(f"Generados {amt} DB COINS para {valid_users[target]}.")
-    
-    elif menu_choice == "Communications":
-        st.subheader("📢 Mensajes Importantes")
-        mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
-        if st.button("📩 Enviar mensaje"):
-            db.collection("communications").document().set({
-                "usuario": user_code,
-                "fecha": datetime.now().strftime("%Y-%m-%d"),
-                "mensaje": mensaje
-            })
-            st.success("Mensaje enviado.")
-    
-    elif menu_choice == "Calendar":
-        st.subheader("📅 Calendario")
-        cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
-        if cal_option == "Crear Evento":
-            st.markdown("### Crear Evento")
-            evento = st.text_input("📌 Nombre del evento")
-            # Selección de rango de fechas para el evento
             start_date, end_date = st.date_input("Selecciona el rango de fechas", value=(date.today(), date.today()))
             tipo_evento = st.radio("Tipo de evento", ["Público", "Privado"])
             if st.button("✅ Agendar evento"):
@@ -891,6 +687,7 @@ def show_main_app():
             """
             components.html(calendar_html, height=600, scrolling=True)
     
+    # ------------------- Roles -------------------
     elif menu_choice == "Roles":
         if user_code == "ALECCION":
             st.subheader("📝 Asignación de Roles Semanal - GL NAMER & LATAM")
@@ -956,6 +753,7 @@ def show_main_app():
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para los TL.")
     
+    # ------------------- Compliance -------------------
     elif menu_choice == "Compliance":
         if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
             st.subheader("📝 Compliance - Feedback")
@@ -973,6 +771,7 @@ def show_main_app():
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para los TL o el Coach.")
     
+    # ------------------- Todas las Tareas -------------------
     elif menu_choice == "Todas las Tareas":
         st.subheader("🗂️ Todas las Tareas")
         st.markdown("### Tareas de Top 3")
@@ -1004,6 +803,7 @@ def show_main_app():
         else:
             st.info("No hay acciones registradas.")
     
+    # ------------------- Store DBSCHENKER -------------------
     elif menu_choice == "Store DBSCHENKER":
         st.subheader("🛍️ Store DBSCHENKER")
         st.write("Productos corporativos (prototipo):")
@@ -1019,6 +819,7 @@ def show_main_app():
                 st.info("Función de compra no implementada.")
             st.markdown("---")
     
+    # ------------------- Wallet -------------------
     elif menu_choice == "Wallet":
         st.subheader("💰 Mi Wallet (DB COINS)")
         wallet_ref = db.collection("wallets").document(user_code)
@@ -1050,6 +851,7 @@ def show_main_app():
                     target_ref.set({"coins": current + amt})
                     st.success(f"Generados {amt} DB COINS para {valid_users[target]}.")
     
+    # ------------------- Communications -------------------
     elif menu_choice == "Communications":
         st.subheader("📢 Mensajes Importantes")
         mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
@@ -1061,6 +863,748 @@ def show_main_app():
             })
             st.success("Mensaje enviado.")
     
+    # ------------------- Calendar -------------------
+    elif menu_choice == "Calendar":
+        st.subheader("📅 Calendario")
+        cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
+        if cal_option == "Crear Evento":
+            st.markdown("### Crear Evento")
+            evento = st.text_input("📌 Nombre del evento")
+            start_date, end_date = st.date_input("Selecciona el rango de fechas", value=(date.today(), date.today()))
+            tipo_evento = st.radio("Tipo de evento", ["Público", "Privado"])
+            if st.button("✅ Agendar evento"):
+                event_data = {
+                    "usuario": user_code,
+                    "evento": evento,
+                    "fecha": start_date.strftime("%Y-%m-%d"),
+                    "fecha_fin": end_date.strftime("%Y-%m-%d"),
+                    "publico": True if tipo_evento == "Público" else False
+                }
+                db.collection("calendar").document().set(event_data)
+                st.success("Evento agendado.")
+        else:
+            st.markdown("### Ver Calendario")
+            start_date, end_date = st.date_input("Selecciona el rango de fechas para ver eventos", value=(date.today(), date.today()))
+            events = []
+            for doc in db.collection("calendar").stream():
+                data = doc.to_dict()
+                if data.get("fecha"):
+                    event_date = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
+                    if start_date <= event_date <= end_date:
+                        title = data.get("evento", "Evento")
+                        if not data.get("publico", False):
+                            title += f" (Privado - {data.get('usuario','')})"
+                        events.append({
+                            "title": title,
+                            "start": data.get("fecha")
+                        })
+            events_json = json.dumps(events)
+            calendar_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset='utf-8' />
+              <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+              <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+              <style>
+                body {{
+                  margin: 0;
+                  padding: 0;
+                }}
+                #calendar {{
+                  max-width: 900px;
+                  margin: 40px auto;
+                }}
+              </style>
+            </head>
+            <body>
+              <div id='calendar'></div>
+              <script>
+                document.addEventListener('DOMContentLoaded', function() {{
+                  var calendarEl = document.getElementById('calendar');
+                  var calendar = new FullCalendar.Calendar(calendarEl, {{
+                    initialView: 'dayGridMonth',
+                    events: {events_json}
+                  }});
+                  calendar.render();
+                }});
+              </script>
+            </body>
+            </html>
+            """
+            components.html(calendar_html, height=600, scrolling=True)
+    
+    # ------------------- Roles -------------------
+    elif menu_choice == "Roles":
+        if user_code == "ALECCION":
+            st.subheader("📝 Asignación de Roles Semanal - GL NAMER & LATAM")
+            if st.button("Asignar Roles"):
+                posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"}]
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.json(st.session_state["roles"])
+        elif user_code == "WORLEAD":
+            st.subheader("📝 Asignación de Roles Semanal - WOR SGBS")
+            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"} and code in group_wor]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
+        elif user_code == "R2RGRAL":
+            st.subheader("📝 Asignación de Roles Semanal - R2R GRAL")
+            posibles = [code for code in valid_users if code not in {"R2RGRAL", "ALECCION", "WORLEAD", "LARANDA", "FALEAD", "ICLEAD"} and code in group_r2r_gral]
+            if len(posibles) >= 2:
+                roles_asignados = random.sample(posibles, 2)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en R2R GRAL para asignar roles.")
+        elif user_code == "FALEAD":
+            st.subheader("📝 Asignación de Roles Semanal - FA")
+            posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "ICLEAD"} and code in group_fa]
+            if len(posibles) >= 2:
+                roles_asignados = random.sample(posibles, 2)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en FA para asignar roles.")
+        elif user_code == "ICLEAD":
+            st.subheader("📝 Asignación de Roles Semanal - IC")
+            posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD"} and code in group_ic]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en IC para asignar roles.")
+        else:
+            st.error("Acceso denegado. Esta opción es exclusiva para los TL.")
+    
+    # ------------------- Compliance -------------------
+    elif menu_choice == "Compliance":
+        if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
+            st.subheader("📝 Compliance - Feedback")
+            feedback_options = [code for code in valid_users if code != user_code]
+            target_user = st.selectbox("Dar feedback a:", feedback_options, format_func=lambda x: f"{valid_users.get(x, x)} ({x})")
+            feedback = st.text_area("Feedback:")
+            if st.button("Enviar Feedback"):
+                db.collection("compliance").add({
+                    "from": user_code,
+                    "to": target_user,
+                    "feedback": feedback,
+                    "fecha": datetime.now().strftime("%Y-%m-%d")
+                })
+                st.success("Feedback enviado.")
+        else:
+            st.error("Acceso denegado. Esta opción es exclusiva para los TL o el Coach.")
+    
+    # ------------------- Todas las Tareas -------------------
+    elif menu_choice == "Todas las Tareas":
+        st.subheader("🗂️ Todas las Tareas")
+        st.markdown("### Tareas de Top 3")
+        tasks_top3 = list(db.collection("top3").stream())
+        if tasks_top3:
+            for task in tasks_top3:
+                task_data = task.to_dict()
+                st.markdown(f"**[TOP 3] {task_data.get('descripcion','(Sin descripción)')}**")
+                st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
+                st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
+                status = task_data.get('status', '')
+                color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
+                st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
+                st.markdown("---")
+        else:
+            st.info("No hay tareas de Top 3 registradas.")
+        st.markdown("### Tareas de Action Board")
+        tasks_actions = list(db.collection("actions").stream())
+        if tasks_actions:
+            for action in tasks_actions:
+                action_data = action.to_dict()
+                st.markdown(f"**[Action Board] {action_data.get('accion','(Sin descripción)')}**")
+                st.write(f"Inicio: {action_data.get('fecha_inicio','')}, Compromiso: {action_data.get('fecha_compromiso','')}, Real: {action_data.get('fecha_real','')}")
+                st.markdown(f"**Usuario:** {action_data.get('usuario','')}")
+                status = action_data.get('status', '')
+                color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
+                st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
+                st.markdown("---")
+        else:
+            st.info("No hay acciones registradas.")
+    
+    # ------------------- Store DBSCHENKER -------------------
+    elif menu_choice == "Store DBSCHENKER":
+        st.subheader("🛍️ Store DBSCHENKER")
+        st.write("Productos corporativos (prototipo):")
+        products = [
+            {"name": "Taza DBS", "price": 10, "image": "https://via.placeholder.com/150?text=Taza+DBS"},
+            {"name": "Playera DBS", "price": 20, "image": "https://via.placeholder.com/150?text=Playera+DBS"},
+            {"name": "Gorra DBS", "price": 15, "image": "https://via.placeholder.com/150?text=Gorra+DBS"}
+        ]
+        for prod in products:
+            st.image(prod["image"], width=150)
+            st.markdown(f"**{prod['name']}** - {prod['price']} DB COINS")
+            if st.button(f"Comprar {prod['name']}", key=f"buy_{prod['name']}"):
+                st.info("Función de compra no implementada.")
+            st.markdown("---")
+    
+    # ------------------- Wallet -------------------
+    elif menu_choice == "Wallet":
+        st.subheader("💰 Mi Wallet (DB COINS)")
+        wallet_ref = db.collection("wallets").document(user_code)
+        doc = wallet_ref.get()
+        current_coins = 0
+        if doc.exists:
+            current_coins = doc.to_dict().get("coins", 0)
+        st.write(f"**Saldo actual:** {current_coins} DB COINS")
+        if user_code == "LARANDA":
+            add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
+            if st.button("Generar DB COINS"):
+                new_balance = current_coins + add_coins
+                wallet_ref.set({"coins": new_balance})
+                st.success(f"Generados {add_coins} DB COINS. Nuevo saldo: {new_balance}.")
+            st.markdown("### Funciones Administrativas")
+            admin_key = st.text_input("Clave Admin", type="password")
+            if admin_key == "ADMIN123":
+                if st.button("Resetear todas las monedas a 0"):
+                    for u in valid_users:
+                        db.collection("wallets").document(u).set({"coins": 0})
+                target = st.selectbox("Generar monedas para el usuario:", list(valid_users.keys()), format_func=lambda x: f"{valid_users[x]} ({x})")
+                amt = st.number_input("Cantidad de DB COINS a generar:", min_value=1, step=1, value=10)
+                if st.button("Generar para usuario seleccionado"):
+                    target_ref = db.collection("wallets").document(target)
+                    doc_target = target_ref.get()
+                    current = 0
+                    if doc_target.exists:
+                        current = doc_target.to_dict().get("coins", 0)
+                    target_ref.set({"coins": current + amt})
+                    st.success(f"Generados {amt} DB COINS para {valid_users[target]}.")
+    
+    # ------------------- Communications -------------------
+    elif menu_choice == "Communications":
+        st.subheader("📢 Mensajes Importantes")
+        mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
+        if st.button("📩 Enviar mensaje"):
+            db.collection("communications").document().set({
+                "usuario": user_code,
+                "fecha": datetime.now().strftime("%Y-%m-%d"),
+                "mensaje": mensaje
+            })
+            st.success("Mensaje enviado.")
+    
+    # ------------------- Calendar -------------------
+    elif menu_choice == "Calendar":
+        st.subheader("📅 Calendario")
+        cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
+        if cal_option == "Crear Evento":
+            st.markdown("### Crear Evento")
+            evento = st.text_input("📌 Nombre del evento")
+            start_date, end_date = st.date_input("Selecciona el rango de fechas", value=(date.today(), date.today()))
+            tipo_evento = st.radio("Tipo de evento", ["Público", "Privado"])
+            if st.button("✅ Agendar evento"):
+                event_data = {
+                    "usuario": user_code,
+                    "evento": evento,
+                    "fecha": start_date.strftime("%Y-%m-%d"),
+                    "fecha_fin": end_date.strftime("%Y-%m-%d"),
+                    "publico": True if tipo_evento == "Público" else False
+                }
+                db.collection("calendar").document().set(event_data)
+                st.success("Evento agendado.")
+        else:
+            st.markdown("### Ver Calendario")
+            start_date, end_date = st.date_input("Selecciona el rango de fechas para ver eventos", value=(date.today(), date.today()))
+            events = []
+            for doc in db.collection("calendar").stream():
+                data = doc.to_dict()
+                if data.get("fecha"):
+                    event_date = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
+                    if start_date <= event_date <= end_date:
+                        title = data.get("evento", "Evento")
+                        if not data.get("publico", False):
+                            title += f" (Privado - {data.get('usuario','')})"
+                        events.append({
+                            "title": title,
+                            "start": data.get("fecha")
+                        })
+            events_json = json.dumps(events)
+            calendar_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset='utf-8' />
+              <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+              <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+              <style>
+                body {{
+                  margin: 0;
+                  padding: 0;
+                }}
+                #calendar {{
+                  max-width: 900px;
+                  margin: 40px auto;
+                }}
+              </style>
+            </head>
+            <body>
+              <div id='calendar'></div>
+              <script>
+                document.addEventListener('DOMContentLoaded', function() {{
+                  var calendarEl = document.getElementById('calendar');
+                  var calendar = new FullCalendar.Calendar(calendarEl, {{
+                    initialView: 'dayGridMonth',
+                    events: {events_json}
+                  }});
+                  calendar.render();
+                }});
+              </script>
+            </body>
+            </html>
+            """
+            components.html(calendar_html, height=600, scrolling=True)
+    
+    # ------------------- Roles -------------------
+    elif menu_choice == "Roles":
+        if user_code == "ALECCION":
+            st.subheader("📝 Asignación de Roles Semanal - GL NAMER & LATAM")
+            if st.button("Asignar Roles"):
+                posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"}]
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.json(st.session_state["roles"])
+        elif user_code == "WORLEAD":
+            st.subheader("📝 Asignación de Roles Semanal - WOR SGBS")
+            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"} and code in group_wor]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
+        elif user_code == "R2RGRAL":
+            st.subheader("📝 Asignación de Roles Semanal - R2R GRAL")
+            posibles = [code for code in valid_users if code not in {"R2RGRAL", "ALECCION", "WORLEAD", "LARANDA", "FALEAD", "ICLEAD"} and code in group_r2r_gral]
+            if len(posibles) >= 2:
+                roles_asignados = random.sample(posibles, 2)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en R2R GRAL para asignar roles.")
+        elif user_code == "FALEAD":
+            st.subheader("📝 Asignación de Roles Semanal - FA")
+            posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "ICLEAD"} and code in group_fa]
+            if len(posibles) >= 2:
+                roles_asignados = random.sample(posibles, 2)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en FA para asignar roles.")
+        elif user_code == "ICLEAD":
+            st.subheader("📝 Asignación de Roles Semanal - IC")
+            posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD"} and code in group_ic]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en IC para asignar roles.")
+        else:
+            st.error("Acceso denegado. Esta opción es exclusiva para los TL.")
+    
+    # ------------------- Compliance -------------------
+    elif menu_choice == "Compliance":
+        if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
+            st.subheader("📝 Compliance - Feedback")
+            feedback_options = [code for code in valid_users if code != user_code]
+            target_user = st.selectbox("Dar feedback a:", feedback_options, format_func=lambda x: f"{valid_users.get(x, x)} ({x})")
+            feedback = st.text_area("Feedback:")
+            if st.button("Enviar Feedback"):
+                db.collection("compliance").add({
+                    "from": user_code,
+                    "to": target_user,
+                    "feedback": feedback,
+                    "fecha": datetime.now().strftime("%Y-%m-%d")
+                })
+                st.success("Feedback enviado.")
+        else:
+            st.error("Acceso denegado. Esta opción es exclusiva para los TL o el Coach.")
+    
+    # ------------------- Todas las Tareas -------------------
+    elif menu_choice == "Todas las Tareas":
+        st.subheader("🗂️ Todas las Tareas")
+        st.markdown("### Tareas de Top 3")
+        tasks_top3 = list(db.collection("top3").stream())
+        if tasks_top3:
+            for task in tasks_top3:
+                task_data = task.to_dict()
+                st.markdown(f"**[TOP 3] {task_data.get('descripcion','(Sin descripción)')}**")
+                st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
+                st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
+                status = task_data.get('status', '')
+                color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
+                st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
+                st.markdown("---")
+        else:
+            st.info("No hay tareas de Top 3 registradas.")
+        st.markdown("### Tareas de Action Board")
+        tasks_actions = list(db.collection("actions").stream())
+        if tasks_actions:
+            for action in tasks_actions:
+                action_data = action.to_dict()
+                st.markdown(f"**[Action Board] {action_data.get('accion','(Sin descripción)')}**")
+                st.write(f"Inicio: {action_data.get('fecha_inicio','')}, Compromiso: {action_data.get('fecha_compromiso','')}, Real: {action_data.get('fecha_real','')}")
+                st.markdown(f"**Usuario:** {action_data.get('usuario','')}")
+                status = action_data.get('status', '')
+                color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
+                st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
+                st.markdown("---")
+        else:
+            st.info("No hay acciones registradas.")
+    
+    # ------------------- Store DBSCHENKER -------------------
+    elif menu_choice == "Store DBSCHENKER":
+        st.subheader("🛍️ Store DBSCHENKER")
+        st.write("Productos corporativos (prototipo):")
+        products = [
+            {"name": "Taza DBS", "price": 10, "image": "https://via.placeholder.com/150?text=Taza+DBS"},
+            {"name": "Playera DBS", "price": 20, "image": "https://via.placeholder.com/150?text=Playera+DBS"},
+            {"name": "Gorra DBS", "price": 15, "image": "https://via.placeholder.com/150?text=Gorra+DBS"}
+        ]
+        for prod in products:
+            st.image(prod["image"], width=150)
+            st.markdown(f"**{prod['name']}** - {prod['price']} DB COINS")
+            if st.button(f"Comprar {prod['name']}", key=f"buy_{prod['name']}"):
+                st.info("Función de compra no implementada.")
+            st.markdown("---")
+    
+    # ------------------- Wallet -------------------
+    elif menu_choice == "Wallet":
+        st.subheader("💰 Mi Wallet (DB COINS)")
+        wallet_ref = db.collection("wallets").document(user_code)
+        doc = wallet_ref.get()
+        current_coins = 0
+        if doc.exists:
+            current_coins = doc.to_dict().get("coins", 0)
+        st.write(f"**Saldo actual:** {current_coins} DB COINS")
+        if user_code == "LARANDA":
+            add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
+            if st.button("Generar DB COINS"):
+                new_balance = current_coins + add_coins
+                wallet_ref.set({"coins": new_balance})
+                st.success(f"Generados {add_coins} DB COINS. Nuevo saldo: {new_balance}.")
+            st.markdown("### Funciones Administrativas")
+            admin_key = st.text_input("Clave Admin", type="password")
+            if admin_key == "ADMIN123":
+                if st.button("Resetear todas las monedas a 0"):
+                    for u in valid_users:
+                        db.collection("wallets").document(u).set({"coins": 0})
+                target = st.selectbox("Generar monedas para el usuario:", list(valid_users.keys()), format_func=lambda x: f"{valid_users[x]} ({x})")
+                amt = st.number_input("Cantidad de DB COINS a generar:", min_value=1, step=1, value=10)
+                if st.button("Generar para usuario seleccionado"):
+                    target_ref = db.collection("wallets").document(target)
+                    doc_target = target_ref.get()
+                    current = 0
+                    if doc_target.exists:
+                        current = doc_target.to_dict().get("coins", 0)
+                    target_ref.set({"coins": current + amt})
+                    st.success(f"Generados {amt} DB COINS para {valid_users[target]}.")
+    
+    # ------------------- Communications -------------------
+    elif menu_choice == "Communications":
+        st.subheader("📢 Mensajes Importantes")
+        mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
+        if st.button("📩 Enviar mensaje"):
+            db.collection("communications").document().set({
+                "usuario": user_code,
+                "fecha": datetime.now().strftime("%Y-%m-%d"),
+                "mensaje": mensaje
+            })
+            st.success("Mensaje enviado.")
+    
+    # ------------------- Calendar -------------------
+    elif menu_choice == "Calendar":
+        st.subheader("📅 Calendario")
+        cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
+        if cal_option == "Crear Evento":
+            st.markdown("### Crear Evento")
+            evento = st.text_input("📌 Nombre del evento")
+            start_date, end_date = st.date_input("Selecciona el rango de fechas", value=(date.today(), date.today()))
+            tipo_evento = st.radio("Tipo de evento", ["Público", "Privado"])
+            if st.button("✅ Agendar evento"):
+                event_data = {
+                    "usuario": user_code,
+                    "evento": evento,
+                    "fecha": start_date.strftime("%Y-%m-%d"),
+                    "fecha_fin": end_date.strftime("%Y-%m-%d"),
+                    "publico": True if tipo_evento == "Público" else False
+                }
+                db.collection("calendar").document().set(event_data)
+                st.success("Evento agendado.")
+        else:
+            st.markdown("### Ver Calendario")
+            start_date, end_date = st.date_input("Selecciona el rango de fechas para ver eventos", value=(date.today(), date.today()))
+            events = []
+            for doc in db.collection("calendar").stream():
+                data = doc.to_dict()
+                if data.get("fecha"):
+                    event_date = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
+                    if start_date <= event_date <= end_date:
+                        title = data.get("evento", "Evento")
+                        if not data.get("publico", False):
+                            title += f" (Privado - {data.get('usuario','')})"
+                        events.append({
+                            "title": title,
+                            "start": data.get("fecha")
+                        })
+            events_json = json.dumps(events)
+            calendar_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset='utf-8' />
+              <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+              <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+              <style>
+                body {{
+                  margin: 0;
+                  padding: 0;
+                }}
+                #calendar {{
+                  max-width: 900px;
+                  margin: 40px auto;
+                }}
+              </style>
+            </head>
+            <body>
+              <div id='calendar'></div>
+              <script>
+                document.addEventListener('DOMContentLoaded', function() {{
+                  var calendarEl = document.getElementById('calendar');
+                  var calendar = new FullCalendar.Calendar(calendarEl, {{
+                    initialView: 'dayGridMonth',
+                    events: {events_json}
+                  }});
+                  calendar.render();
+                }});
+              </script>
+            </body>
+            </html>
+            """
+            components.html(calendar_html, height=600, scrolling=True)
+    
+    # ------------------- Roles -------------------
+    elif menu_choice == "Roles":
+        if user_code == "ALECCION":
+            st.subheader("📝 Asignación de Roles Semanal - GL NAMER & LATAM")
+            if st.button("Asignar Roles"):
+                posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"}]
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.json(st.session_state["roles"])
+        elif user_code == "WORLEAD":
+            st.subheader("📝 Asignación de Roles Semanal - WOR SGBS")
+            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"} and code in group_wor]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
+        elif user_code == "R2RGRAL":
+            st.subheader("📝 Asignación de Roles Semanal - R2R GRAL")
+            posibles = [code for code in valid_users if code not in {"R2RGRAL", "ALECCION", "WORLEAD", "LARANDA", "FALEAD", "ICLEAD"} and code in group_r2r_gral]
+            if len(posibles) >= 2:
+                roles_asignados = random.sample(posibles, 2)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en R2R GRAL para asignar roles.")
+        elif user_code == "FALEAD":
+            st.subheader("📝 Asignación de Roles Semanal - FA")
+            posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "ICLEAD"} and code in group_fa]
+            if len(posibles) >= 2:
+                roles_asignados = random.sample(posibles, 2)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en FA para asignar roles.")
+        elif user_code == "ICLEAD":
+            st.subheader("📝 Asignación de Roles Semanal - IC")
+            posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD"} and code in group_ic]
+            if len(posibles) >= 3:
+                roles_asignados = random.sample(posibles, 3)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2]
+                }
+                st.json(st.session_state["roles"])
+            else:
+                st.error("No hay suficientes usuarios en IC para asignar roles.")
+        else:
+            st.error("Acceso denegado. Esta opción es exclusiva para los TL.")
+    
+    # ------------------- Compliance -------------------
+    elif menu_choice == "Compliance":
+        if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
+            st.subheader("📝 Compliance - Feedback")
+            feedback_options = [code for code in valid_users if code != user_code]
+            target_user = st.selectbox("Dar feedback a:", feedback_options, format_func=lambda x: f"{valid_users.get(x, x)} ({x})")
+            feedback = st.text_area("Feedback:")
+            if st.button("Enviar Feedback"):
+                db.collection("compliance").add({
+                    "from": user_code,
+                    "to": target_user,
+                    "feedback": feedback,
+                    "fecha": datetime.now().strftime("%Y-%m-%d")
+                })
+                st.success("Feedback enviado.")
+        else:
+            st.error("Acceso denegado. Esta opción es exclusiva para los TL o el Coach.")
+    
+    # ------------------- Todas las Tareas -------------------
+    elif menu_choice == "Todas las Tareas":
+        st.subheader("🗂️ Todas las Tareas")
+        st.markdown("### Tareas de Top 3")
+        tasks_top3 = list(db.collection("top3").stream())
+        if tasks_top3:
+            for task in tasks_top3:
+                task_data = task.to_dict()
+                st.markdown(f"**[TOP 3] {task_data.get('descripcion','(Sin descripción)')}**")
+                st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
+                st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
+                status = task_data.get('status', '')
+                color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
+                st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
+                st.markdown("---")
+        else:
+            st.info("No hay tareas de Top 3 registradas.")
+        st.markdown("### Tareas de Action Board")
+        tasks_actions = list(db.collection("actions").stream())
+        if tasks_actions:
+            for action in tasks_actions:
+                action_data = action.to_dict()
+                st.markdown(f"**[Action Board] {action_data.get('accion','(Sin descripción)')}**")
+                st.write(f"Inicio: {action_data.get('fecha_inicio','')}, Compromiso: {action_data.get('fecha_compromiso','')}, Real: {action_data.get('fecha_real','')}")
+                st.markdown(f"**Usuario:** {action_data.get('usuario','')}")
+                status = action_data.get('status', '')
+                color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
+                st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
+                st.markdown("---")
+        else:
+            st.info("No hay acciones registradas.")
+    
+    # ------------------- Store DBSCHENKER -------------------
+    elif menu_choice == "Store DBSCHENKER":
+        st.subheader("🛍️ Store DBSCHENKER")
+        st.write("Productos corporativos (prototipo):")
+        products = [
+            {"name": "Taza DBS", "price": 10, "image": "https://via.placeholder.com/150?text=Taza+DBS"},
+            {"name": "Playera DBS", "price": 20, "image": "https://via.placeholder.com/150?text=Playera+DBS"},
+            {"name": "Gorra DBS", "price": 15, "image": "https://via.placeholder.com/150?text=Gorra+DBS"}
+        ]
+        for prod in products:
+            st.image(prod["image"], width=150)
+            st.markdown(f"**{prod['name']}** - {prod['price']} DB COINS")
+            if st.button(f"Comprar {prod['name']}", key=f"buy_{prod['name']}"):
+                st.info("Función de compra no implementada.")
+            st.markdown("---")
+    
+    # ------------------- Wallet -------------------
+    elif menu_choice == "Wallet":
+        st.subheader("💰 Mi Wallet (DB COINS)")
+        wallet_ref = db.collection("wallets").document(user_code)
+        doc = wallet_ref.get()
+        current_coins = 0
+        if doc.exists:
+            current_coins = doc.to_dict().get("coins", 0)
+        st.write(f"**Saldo actual:** {current_coins} DB COINS")
+        if user_code == "LARANDA":
+            add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
+            if st.button("Generar DB COINS"):
+                new_balance = current_coins + add_coins
+                wallet_ref.set({"coins": new_balance})
+                st.success(f"Generados {add_coins} DB COINS. Nuevo saldo: {new_balance}.")
+            st.markdown("### Funciones Administrativas")
+            admin_key = st.text_input("Clave Admin", type="password")
+            if admin_key == "ADMIN123":
+                if st.button("Resetear todas las monedas a 0"):
+                    for u in valid_users:
+                        db.collection("wallets").document(u).set({"coins": 0})
+                target = st.selectbox("Generar monedas para el usuario:", list(valid_users.keys()), format_func=lambda x: f"{valid_users[x]} ({x})")
+                amt = st.number_input("Cantidad de DB COINS a generar:", min_value=1, step=1, value=10)
+                if st.button("Generar para usuario seleccionado"):
+                    target_ref = db.collection("wallets").document(target)
+                    doc_target = target_ref.get()
+                    current = 0
+                    if doc_target.exists:
+                        current = doc_target.to_dict().get("coins", 0)
+                    target_ref.set({"coins": current + amt})
+                    st.success(f"Generados {amt} DB COINS para {valid_users[target]}.")
+    
+    # ------------------- Communications -------------------
+    elif menu_choice == "Communications":
+        st.subheader("📢 Mensajes Importantes")
+        mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
+        if st.button("📩 Enviar mensaje"):
+            db.collection("communications").document().set({
+                "usuario": user_code,
+                "fecha": datetime.now().strftime("%Y-%m-%d"),
+                "mensaje": mensaje
+            })
+            st.success("Mensaje enviado.")
+    
+    # ------------------- Calendar -------------------
     elif menu_choice == "Calendar":
         st.subheader("📅 Calendario")
         cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
