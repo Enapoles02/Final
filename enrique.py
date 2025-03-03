@@ -215,7 +215,7 @@ def show_main_app():
         # Representación en forma de "batería" (barra vertical)
         battery_html = f"""
         <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px; position: relative;">
-          <div style="position: absolute; bottom: 0; width: 100%; height: {energy_level}%; background-color: #00ff00;"></div>
+          <div style="position: absolute; bottom: 0; width: 50%; height: {energy_level}%; background-color: #00ff00;"></div>
         </div>
         """
         st.markdown(battery_html, unsafe_allow_html=True)
