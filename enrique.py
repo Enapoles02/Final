@@ -16,6 +16,7 @@ valid_users = {
     "AZENTENO": "Zenteno Perez Alejandro",
     "XGUTIERREZ": "Gutierrez Hernandez Ximena",
     "CNAPOLES": "Napoles Escalante Christopher Enrique",
+    "MCANO": "Marco Antonio Cano Calzada
     # R2R LATAM:
     # (Miriam Sanchez se retira de este grupo)
     "MHERNANDEZ": "Hernandez Ponce Maria Guadalupe",
@@ -50,7 +51,7 @@ valid_users = {
     "ICLEAD": "TL IC"
 }
 
-group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES"}
+group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES", "MCANO"}
 group_latam    = {"MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
 group_wor      = {"MLOPEZ", "GMAJORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
