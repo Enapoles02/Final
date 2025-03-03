@@ -16,7 +16,7 @@ valid_users = {
     "AZENTENO": "Zenteno Perez Alejandro",
     "XGUTIERREZ": "Gutierrez Hernandez Ximena",
     "CNAPOLES": "Napoles Escalante Christopher Enrique",
-    "MCANO": "Marco Antonio Cano Calzada"
+    "MCANO": "Marco Antonio Cano Calzada",
     # R2R LATAM:
     # (Miriam Sanchez se retira de este grupo)
     "MHERNANDEZ": "Hernandez Ponce Maria Guadalupe",
