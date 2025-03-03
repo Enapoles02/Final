@@ -210,12 +210,12 @@ def show_main_app():
         selected_feeling = st.radio("Selecciona tu estado de ánimo:", list(feelings.keys()))
         health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
         st.write("Nivel de energía (elige 10, 20, 30, 40 o 50):")
-        energy_options = [10, 20, 30, 40, 50]
+        energy_options = [10, 20, 30, 40, 50, 60, 70, 80, 90, 100]
         energy_level = st.radio("Nivel de energía:", options=energy_options, horizontal=True)
         # Representación en forma de "batería" (barra vertical)
         battery_html = f"""
         <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px; position: relative;">
-          <div style="position: absolute; bottom: 0; width: 50%; height: {energy_level}%; background-color: #00ff00;"></div>
+          <div style="position: absolute; bottom: 0; width: 100%; height: {energy_level}%; background-color: #00ff00;"></div>
         </div>
         """
         st.markdown(battery_html, unsafe_allow_html=True)
