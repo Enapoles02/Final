@@ -774,7 +774,6 @@ def show_main_app():
     
     # ------------------- Todas las Tareas -------------------
     elif menu_choice == "Todas las Tareas":
-         if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("ActionTaker") == user_code):
         st.subheader("🗂️ Todas las Tareas")
         st.markdown("### Tareas de Top 3")
         tasks_top3 = list(db.collection("top3").stream())
