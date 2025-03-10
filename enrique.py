@@ -47,7 +47,9 @@ valid_users = {
     "CCIBARRA": "Carlos Candelas Ibarra",
     "LEDYANEZ": "Luis Enrique Delhumeau Yanez",
     "EIMARTINEZ": "Elizabeth Ibanez Martinez",
-    "ICLEAD": "TL IC"
+    "ICLEAD": "TL IC",
+    # Perfil de reporteo KPI:
+    "KPI": "KPI Reporte"
 }
 
 group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES", "MACANO"}
@@ -68,7 +70,7 @@ if "user_code" not in st.session_state:
 
 def show_login():
     st.title("🔥 Daily Huddle - Login")
-    st.write("Ingresa tu código de usuario (ej.: CNAPOLES, R2RGRAL, WORLEAD, FALEAD, ICLEAD, MACANO, etc.)")
+    st.write("Ingresa tu código de usuario (ej.: CNAPOLES, R2RGRAL, WORLEAD, FALEAD, ICLEAD, MACANO, KPI, etc.)")
     user_input = st.text_input("Código de usuario:", max_chars=20)
     if st.button("Ingresar"):
         user_input = user_input.strip().upper()
@@ -150,10 +152,77 @@ def get_team_for_tl(tl_code):
         return [tl_code]
 
 # ================================
+# Función para determinar la "fecha activa"
+# ================================
+def get_active_date():
+    today = date.today()
+    # Si hoy es sábado (5) o domingo (6), usamos el viernes
+    if today.weekday() == 5:
+        active = today - timedelta(days=1)
+    elif today.weekday() == 6:
+        active = today - timedelta(days=2)
+    else:
+        active = today
+    return active.strftime("%Y-%m-%d")
+
+# ================================
+# Dashboard KPI (sólo para usuario KPI)
+# ================================
+def show_kpi_dashboard():
+    st.header("Dashboard KPI")
+    st.markdown("Este es un resumen general de los reportes.")
+    
+    # Asistencia: contar total de registros de asistencia del día activo
+    active_date = get_active_date()
+    attendance_docs = list(db.collection("attendance").where("fecha", "==", active_date).stream())
+    total_asistencia = len(attendance_docs)
+    st.metric("Asistencia (día activo)", f"{total_asistencia} registros")
+    
+    # Top 3: contar tareas registradas en Top 3 en el mes actual
+    current_month = datetime.now().strftime("%Y-%m")
+    top3_docs = [doc for doc in db.collection("top3").stream() if doc.to_dict().get("fecha_inicio", "").startswith(current_month)]
+    st.metric("Tareas Top 3 (mes actual)", f"{len(top3_docs)} tareas")
+    
+    # Action Board: contar acciones del mes actual
+    action_docs = [doc for doc in db.collection("actions").stream() if doc.to_dict().get("fecha_inicio", "").startswith(current_month)]
+    st.metric("Acciones (mes actual)", f"{len(action_docs)} acciones")
+    
+    # Recognitions: contar reconocimientos del mes actual
+    rec_docs = [doc for doc in db.collection("recognitions").stream() if doc.to_dict().get("fecha", "").startswith(current_month)]
+    st.metric("Reconocimientos (mes actual)", f"{len(rec_docs)} reconocimientos")
+    
+    st.markdown("### Detalle de Asistencia")
+    attendance_list = []
+    for doc in attendance_docs:
+        data = doc.to_dict()
+        # Se asume que en el documento se tiene "usuario"
+        usuario = data.get("usuario", "N/A")
+        attendance_list.append({
+            "Usuario": valid_users.get(usuario, usuario),
+            "Feeling": data.get("estado_animo", "N/A"),
+            "Pregunta": data.get("problema_salud", "N/A"),
+            "Energía": f"{data.get('energia', 0)}%",
+            "Fecha": data.get("fecha", "N/A")
+        })
+    if attendance_list:
+        df_att = pd.DataFrame(attendance_list)
+        st.dataframe(df_att)
+    else:
+        st.info("No hay registros de asistencia para el día activo.")
+    
+    st.markdown("### Otros KPIs")
+    st.markdown("Aquí se pueden agregar gráficos y reportes adicionales según lo requieras.")
+
+# ================================
 # App Principal
 # ================================
 def show_main_app():
     user_code = st.session_state["user_code"]
+
+    # Si el usuario es KPI, mostrar únicamente el dashboard KPI
+    if user_code == "KPI":
+        show_kpi_dashboard()
+        return
 
     st.image(
         "http://bulk-distributor.com/wp-content/uploads/2016/01/DB-Schenker-Hub-Salzburg.jpg",
@@ -169,7 +238,6 @@ def show_main_app():
     
     # ------------------- Asistencia -------------------
     if menu_choice == "Asistencia":
-        # Para usuarios no TL: se registra la asistencia
         if user_code not in TL_USERS:
             st.subheader("📝 Registro de Asistencia")
             today_date = datetime.now().strftime("%Y-%m-%d")
@@ -207,22 +275,13 @@ def show_main_app():
                 })
                 st.success("Asistencia registrada correctamente.")
         else:
-            # Para TL: mostrar sólo el resumen de asistencia de su equipo para la fecha activa.
             st.subheader("📊 Resumen de Asistencia de tu equipo")
-            # Determinar la fecha activa:
-            today = date.today()
-            if today.weekday() == 5:  # sábado
-                active_date = today - timedelta(days=1)
-            elif today.weekday() == 6:  # domingo
-                active_date = today - timedelta(days=2)
-            else:
-                active_date = today
-            active_date_str = active_date.strftime("%Y-%m-%d")
+            active_date = get_active_date()
             team = get_team_for_tl(user_code)
             attendance_list = []
             for u in team:
                 doc = db.collection("attendance").document(u).get()
-                if doc.exists and doc.to_dict().get("fecha") == active_date_str:
+                if doc.exists and doc.to_dict().get("fecha") == active_date:
                     info = doc.to_dict()
                     attendance = "✅"
                     feeling = info.get("estado_animo", "N/A")
@@ -232,7 +291,7 @@ def show_main_app():
                 else:
                     attendance = "❌"
                     feeling = "N/A"
-                    fecha = active_date_str
+                    fecha = active_date
                     pregunta = "N/A"
                     energia = "N/A"
                 attendance_list.append({
@@ -245,21 +304,9 @@ def show_main_app():
                 })
             if attendance_list:
                 df_attendance = pd.DataFrame(attendance_list)
-                # Construimos una tabla HTML con estilos para ampliar las columnas de Asistencia y Fecha
-                html_table = df_attendance.to_html(index=False, escape=False)
-                style = """
-                <style>
-                .dataframe td:nth-child(2), .dataframe th:nth-child(2) {
-                    width: 120px;
-                }
-                .dataframe td:nth-child(4), .dataframe th:nth-child(4) {
-                    width: 120px;
-                }
-                </style>
-                """
-                st.markdown(style + html_table, unsafe_allow_html=True)
+                st.dataframe(df_attendance)
             else:
-                st.info("No hay registros para la fecha activa: " + active_date_str)
+                st.info("No hay registros para la fecha activa: " + active_date)
     
     # ------------------- Top 3 -------------------
     elif menu_choice == "Top 3":
@@ -677,7 +724,7 @@ def show_main_app():
         if user_code == "ALECCION":
             st.subheader("📝 Asignación de Roles Semanal - GL NAMER & LATAM")
             if st.button("Asignar Roles"):
-                posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"}]
+                posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD", "KPI"}]
                 roles_asignados = random.sample(posibles, 3)
                 st.session_state["roles"] = {
                     "Timekeeper": roles_asignados[0],
@@ -687,7 +734,7 @@ def show_main_app():
                 st.json(st.session_state["roles"])
         elif user_code == "WORLEAD":
             st.subheader("📝 Asignación de Roles Semanal - WOR SGBS")
-            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD"} and code in group_wor]
+            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD", "KPI"} and code in group_wor]
             if len(posibles) >= 3:
                 roles_asignados = random.sample(posibles, 3)
                 st.session_state["roles"] = {
@@ -700,7 +747,7 @@ def show_main_app():
                 st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
         elif user_code == "R2RGRAL":
             st.subheader("📝 Asignación de Roles Semanal - R2R GRAL")
-            posibles = [code for code in valid_users if code not in {"R2RGRAL", "ALECCION", "WORLEAD", "LARANDA", "FALEAD", "ICLEAD"} and code in group_r2r_gral]
+            posibles = [code for code in valid_users if code not in {"R2RGRAL", "ALECCION", "WORLEAD", "LARANDA", "FALEAD", "ICLEAD", "KPI"} and code in group_r2r_gral]
             if len(posibles) >= 2:
                 roles_asignados = random.sample(posibles, 2)
                 st.session_state["roles"] = {
@@ -712,7 +759,7 @@ def show_main_app():
                 st.error("No hay suficientes usuarios en R2R GRAL para asignar roles.")
         elif user_code == "FALEAD":
             st.subheader("📝 Asignación de Roles Semanal - FA")
-            posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "ICLEAD"} and code in group_fa]
+            posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "ICLEAD", "KPI"} and code in group_fa]
             if len(posibles) >= 2:
                 roles_asignados = random.sample(posibles, 2)
                 st.session_state["roles"] = {
@@ -724,7 +771,7 @@ def show_main_app():
                 st.error("No hay suficientes usuarios en FA para asignar roles.")
         elif user_code == "ICLEAD":
             st.subheader("📝 Asignación de Roles Semanal - IC")
-            posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD"} and code in group_ic]
+            posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "KPI"} and code in group_ic]
             if len(posibles) >= 3:
                 roles_asignados = random.sample(posibles, 3)
                 st.session_state["roles"] = {
