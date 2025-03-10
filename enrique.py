@@ -212,7 +212,6 @@ def show_kpi_dashboard():
 def show_main_app():
     user_code = st.session_state["user_code"]
 
-    # Si el usuario es KPI, se muestra el dashboard
     if user_code == "KPI":
         show_kpi_dashboard()
         return
@@ -331,30 +330,16 @@ def show_main_app():
             for task_data in t_list:
                 st.markdown(f"- [TOP 3] {task_data.get('descripcion','(Sin descripción)')}")
                 st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
+                # Si la tarea tiene el campo 'origen', se muestra quien la creó además del colaborador.
+                usuario_field = task_data.get("usuario", "")
+                origen_field = task_data.get("origen", None)
+                if origen_field:
+                    st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador), Creado por: {valid_users.get(origen_field, origen_field)}")
+                else:
+                    st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)}")
                 status_val = task_data.get('status','')
                 color = status_colors.get(status_val, "black")
-                st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
-                new_status = st.selectbox(
-                    "Editar status",
-                    ["Pendiente", "En proceso", "Completado"],
-                    index=(["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
-                    key=f"top3_status_{task_data.get('id')}"
-                )
-                custom_status = st.text_input("Status personalizado (opcional)", key=f"top3_custom_{task_data.get('id')}")
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("Actualizar Status", key=f"update_top3_{task_data.get('id')}"):
-                        final_status = get_status(new_status, custom_status)
-                        fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else task_data.get("fecha_real", "")
-                        db.collection("top3").document(task_data.get("id")).update({
-                            "status": final_status,
-                            "fecha_real": fecha_real
-                        })
-                        st.success("Status actualizado.")
-                with col2:
-                    if st.button("🗑️ Eliminar", key=f"delete_top3_{task_data.get('id')}"):
-                        db.collection("top3").document(task_data.get("id")).delete()
-                        st.success("Tarea eliminada.")
+                st.markdown(f"**Status:** <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
                 st.markdown("---")
         if st.button("➕ Agregar Tarea de Top 3"):
             st.session_state.show_top3_form = True
@@ -386,7 +371,7 @@ def show_main_app():
                 }
                 # Tarea principal
                 db.collection("top3").add(data)
-                # Replicar para cada colaborador
+                # Replicar para cada colaborador y almacenar el origen
                 if colaboradores:
                     for collab in colaboradores:
                         data_collab = data.copy()
@@ -425,30 +410,16 @@ def show_main_app():
             for act_data in acts:
                 st.markdown(f"- [Action Board] {act_data.get('accion','(Sin descripción)')}")
                 st.write(f"Inicio: {act_data.get('fecha_inicio','')}, Compromiso: {act_data.get('fecha_compromiso','')}, Real: {act_data.get('fecha_real','')}")
+                # Mostrar colaborador y origen si existe
+                usuario_field = act_data.get("usuario", "")
+                origen_field = act_data.get("origen", None)
+                if origen_field:
+                    st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador), Creado por: {valid_users.get(origen_field, origen_field)}")
+                else:
+                    st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)}")
                 status_val = act_data.get('status','')
                 color = status_colors.get(status_val, "black")
-                st.markdown(f"Status: <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
-                new_status = st.selectbox(
-                    "Editar status",
-                    ["Pendiente", "En proceso", "Completado"],
-                    index=(["Pendiente", "En proceso", "Completado"].index(status_val) if status_val in ["Pendiente", "En proceso", "Completado"] else 0),
-                    key=f"action_status_{act_data.get('id')}"
-                )
-                custom_status = st.text_input("Status personalizado (opcional)", key=f"action_custom_{act_data.get('id')}")
-                col1, col2 = st.columns(2)
-                with col1:
-                    if st.button("Actualizar Status", key=f"update_action_{act_data.get('id')}"):
-                        final_status = get_status(new_status, custom_status)
-                        fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else act_data.get("fecha_real", "")
-                        db.collection("actions").document(act_data.get("id")).update({
-                            "status": final_status,
-                            "fecha_real": fecha_real
-                        })
-                        st.success("Status actualizado.")
-                with col2:
-                    if st.button("🗑️ Eliminar", key=f"delete_action_{act_data.get('id')}"):
-                        db.collection("actions").document(act_data.get("id")).delete()
-                        st.success("Acción eliminada.")
+                st.markdown(f"**Status:** <span style='color:{color};'>{status_val}</span>", unsafe_allow_html=True)
                 st.markdown("---")
         if st.button("➕ Agregar Acción"):
             st.session_state.show_action_form = True
@@ -827,7 +798,12 @@ def show_main_app():
                     task_data = task.to_dict()
                     st.markdown(f"**[TOP 3] {task_data.get('descripcion','(Sin descripción)')}**")
                     st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
-                    st.markdown(f"**Usuario:** {task_data.get('usuario','')}")
+                    usuario_field = task_data.get("usuario", "")
+                    origen_field = task_data.get("origen", None)
+                    if origen_field:
+                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador), Creado por: {valid_users.get(origen_field, origen_field)}")
+                    else:
+                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)}")
                     status = task_data.get('status', '')
                     color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
                     st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
@@ -844,7 +820,12 @@ def show_main_app():
                     action_data = action.to_dict()
                     st.markdown(f"**[Action Board] {action_data.get('accion','(Sin descripción)')}**")
                     st.write(f"Inicio: {action_data.get('fecha_inicio','')}, Compromiso: {action_data.get('fecha_compromiso','')}, Real: {action_data.get('fecha_real','')}")
-                    st.markdown(f"**Usuario:** {action_data.get('usuario','')}")
+                    usuario_field = action_data.get("usuario", "")
+                    origen_field = action_data.get("origen", None)
+                    if origen_field:
+                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador), Creado por: {valid_users.get(origen_field, origen_field)}")
+                    else:
+                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)}")
                     status = action_data.get('status', '')
                     color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
                     st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
