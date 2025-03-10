@@ -3,7 +3,7 @@ import firebase_admin
 from firebase_admin import credentials, firestore
 from datetime import datetime, date, timedelta
 import streamlit.components.v1 as components
-import json, random
+import json, random, uuid
 import pandas as pd
 
 # ================================
@@ -76,7 +76,6 @@ def show_login():
         if user_input in valid_users:
             st.session_state.user_code = user_input
             st.success(f"¡Bienvenido, {valid_users[user_input]}!")
-            # st.experimental_rerun()  <-- Se comenta para evitar error
         else:
             st.error("Código de usuario inválido. Intenta nuevamente.")
 
@@ -195,6 +194,14 @@ def show_kpi_dashboard():
         st.info("No hay registros de asistencia para el día activo.")
     st.markdown("### Otros KPIs")
     st.markdown("Aquí se pueden agregar más gráficos y reportes según lo requieras.")
+
+# ================================
+# Función para eliminar tareas en grupo
+# ================================
+def delete_task_group(collection, group_id):
+    query = db.collection(collection).where("group_id", "==", group_id).stream()
+    for doc in query:
+        db.collection(collection).document(doc.id).delete()
 
 # ================================
 # App Principal
@@ -336,7 +343,12 @@ def show_main_app():
                         st.success("Status actualizado.")
                 with col2:
                     if st.button("🗑️ Eliminar", key=f"delete_top3_{task_data.get('id')}"):
-                        db.collection("top3").document(task_data.get("id")).delete()
+                        # Si la tarea tiene un group_id, elimina todas las tareas del grupo
+                        group_id = task_data.get("group_id")
+                        if group_id:
+                            delete_task_group("top3", group_id)
+                        else:
+                            db.collection("top3").document(task_data.get("id")).delete()
                         st.success("Tarea eliminada.")
                 st.markdown("---")
         if st.button("➕ Agregar Tarea de Top 3"):
@@ -357,6 +369,8 @@ def show_main_app():
             if submit_new_top3:
                 final_status = get_status(s, custom_status)
                 fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
+                # Si hay colaboradores, se genera un group_id; de lo contrario None
+                group_id = str(uuid.uuid4()) if colaboradores else None
                 data = {
                     "usuario": user_code,
                     "descripcion": p,
@@ -365,7 +379,8 @@ def show_main_app():
                     "fecha_real": fecha_real,
                     "status": final_status,
                     "privado": privado,
-                    "timestamp": datetime.now()
+                    "timestamp": datetime.now(),
+                    "group_id": group_id
                 }
                 db.collection("top3").add(data)
                 if colaboradores:
@@ -432,7 +447,11 @@ def show_main_app():
                         st.success("Status actualizado.")
                 with col2:
                     if st.button("🗑️ Eliminar", key=f"delete_action_{act_data.get('id')}"):
-                        db.collection("actions").document(act_data.get("id")).delete()
+                        group_id = act_data.get("group_id")
+                        if group_id:
+                            delete_task_group("actions", group_id)
+                        else:
+                            db.collection("actions").document(act_data.get("id")).delete()
                         st.success("Acción eliminada.")
                 st.markdown("---")
         if st.button("➕ Agregar Acción"):
@@ -452,6 +471,7 @@ def show_main_app():
             if submit_new_action:
                 final_status = get_status(s, custom_status)
                 fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
+                group_id = str(uuid.uuid4()) if colaboradores else None
                 data = {
                     "usuario": user_code,
                     "accion": accion,
@@ -460,7 +480,8 @@ def show_main_app():
                     "fecha_real": fecha_real,
                     "status": final_status,
                     "privado": privado,
-                    "timestamp": datetime.now()
+                    "timestamp": datetime.now(),
+                    "group_id": group_id
                 }
                 db.collection("actions").add(data)
                 if colaboradores:
@@ -471,7 +492,7 @@ def show_main_app():
                         db.collection("actions").add(data_collab)
                 st.success("Acción guardada.")
                 st.session_state.show_action_form = False
-
+    
     # ------------------- Escalation -------------------
     elif menu_choice == "Escalation":
         st.subheader("⚠️ Escalation")
@@ -580,310 +601,6 @@ def show_main_app():
                     st.markdown("---")
             else:
                 st.info("No hay reconocimientos para mostrar.")
-    
-    # ------------------- Store DBSCHENKER -------------------
-    elif menu_choice == "Store DBSCHENKER":
-        st.subheader("🛍️ Store DBSCHENKER")
-        st.write("Productos corporativos (prototipo):")
-        products = [
-            {"name": "Taza DBS", "price": 10, "image": "https://via.placeholder.com/150?text=Taza+DBS"},
-            {"name": "Playera DBS", "price": 20, "image": "https://via.placeholder.com/150?text=Playera+DBS"},
-            {"name": "Gorra DBS", "price": 15, "image": "https://via.placeholder.com/150?text=Gorra+DBS"}
-        ]
-        for prod in products:
-            st.image(prod["image"], width=150)
-            st.markdown(f"**{prod['name']}** - {prod['price']} DB COINS")
-            if st.button(f"Comprar {prod['name']}", key=f"buy_{prod['name']}"):
-                st.info("Función de compra no implementada.")
-            st.markdown("---")
-    
-    # ------------------- Wallet -------------------
-    elif menu_choice == "Wallet":
-        st.subheader("💰 Mi Wallet (DB COINS)")
-        wallet_ref = db.collection("wallets").document(user_code)
-        doc = wallet_ref.get()
-        current_coins = 0
-        if doc.exists:
-            current_coins = doc.to_dict().get("coins", 0)
-        st.write(f"**Saldo actual:** {current_coins} DB COINS")
-        if user_code == "LARANDA":
-            add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
-            if st.button("Generar DB COINS"):
-                new_balance = current_coins + add_coins
-                wallet_ref.set({"coins": new_balance})
-                st.success(f"Generados {add_coins} DB COINS. Nuevo saldo: {new_balance}.")
-            st.markdown("### Funciones Administrativas")
-            admin_key = st.text_input("Clave Admin", type="password")
-            if admin_key == "ADMIN123":
-                if st.button("Resetear todas las monedas a 0"):
-                    for u in valid_users:
-                        db.collection("wallets").document(u).set({"coins": 0})
-                target = st.selectbox("Generar monedas para el usuario:", list(valid_users.keys()),
-                                        format_func=lambda x: f"{valid_users[x]} ({x})")
-                amt = st.number_input("Cantidad de DB COINS a generar:", min_value=1, step=1, value=10)
-                if st.button("Generar para usuario seleccionado"):
-                    target_ref = db.collection("wallets").document(target)
-                    doc_target = target_ref.get()
-                    current = 0
-                    if doc_target.exists:
-                        current = doc_target.to_dict().get("coins", 0)
-                    target_ref.set({"coins": current + amt})
-                    st.success(f"Generados {amt} DB COINS para {valid_users[target]}.")
-    
-    # ------------------- Communications -------------------
-    elif menu_choice == "Communications":
-        st.subheader("📢 Mensajes Importantes")
-        mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
-        if st.button("📩 Enviar mensaje"):
-            db.collection("communications").document().set({
-                "usuario": user_code,
-                "fecha": datetime.now().strftime("%Y-%m-%d"),
-                "mensaje": mensaje
-            })
-            st.success("Mensaje enviado.")
-    
-    # ------------------- Calendar -------------------
-    elif menu_choice == "Calendar":
-        st.subheader("📅 Calendario")
-        cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
-        if cal_option == "Crear Evento":
-            st.markdown("### Crear Evento")
-            evento = st.text_input("📌 Nombre del evento")
-            start_date, end_date = st.date_input("Selecciona el rango de fechas", value=(date.today(), date.today()))
-            tipo_evento = st.radio("Tipo de evento", ["Público", "Privado"])
-            if st.button("✅ Agendar evento"):
-                event_data = {
-                    "usuario": user_code,
-                    "evento": evento,
-                    "fecha": start_date.strftime("%Y-%m-%d"),
-                    "fecha_fin": end_date.strftime("%Y-%m-%d"),
-                    "publico": True if tipo_evento == "Público" else False
-                }
-                db.collection("calendar").document().set(event_data)
-                st.success("Evento agendado.")
-        else:
-            st.markdown("### Ver Calendario")
-            start_date, end_date = st.date_input("Selecciona el rango de fechas para ver eventos", value=(date.today(), date.today()))
-            events = []
-            for doc in db.collection("calendar").stream():
-                data = doc.to_dict()
-                if data.get("fecha"):
-                    event_date = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
-                    if start_date <= event_date <= end_date:
-                        title = data.get("evento", "Evento")
-                        if not data.get("publico", False):
-                            title += f" (Privado - {data.get('usuario','')})"
-                        events.append({
-                            "title": title,
-                            "start": data.get("fecha")
-                        })
-            events_json = json.dumps(events)
-            calendar_html = f"""
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <meta charset='utf-8' />
-              <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
-              <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
-              <style>
-                body {{
-                  margin: 0;
-                  padding: 0;
-                }}
-                #calendar {{
-                  max-width: 900px;
-                  margin: 40px auto;
-                }}
-              </style>
-            </head>
-            <body>
-              <div id='calendar'></div>
-              <script>
-                document.addEventListener('DOMContentLoaded', function() {{
-                  var calendarEl = document.getElementById('calendar');
-                  var calendar = new FullCalendar.Calendar(calendarEl, {{
-                    initialView: 'dayGridMonth',
-                    events: {events_json}
-                  }});
-                  calendar.render();
-                }});
-              </script>
-            </body>
-            </html>
-            """
-            components.html(calendar_html, height=600, scrolling=True)
-    
-    # ------------------- Roles -------------------
-    elif menu_choice == "Roles":
-        if user_code == "ALECCION":
-            st.subheader("📝 Asignación de Roles Semanal - GL NAMER & LATAM")
-            if st.button("Asignar Roles"):
-                posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD", "KPI"}]
-                roles_asignados = random.sample(posibles, 3)
-                st.session_state["roles"] = {
-                    "Timekeeper": roles_asignados[0],
-                    "ActionTaker": roles_asignados[1],
-                    "Coach": roles_asignados[2]
-                }
-                st.json(st.session_state["roles"])
-        elif user_code == "WORLEAD":
-            st.subheader("📝 Asignación de Roles Semanal - WOR SGBS")
-            posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD", "KPI"} and code in group_wor]
-            if len(posibles) >= 3:
-                roles_asignados = random.sample(posibles, 3)
-                st.session_state["roles"] = {
-                    "Timekeeper": roles_asignados[0],
-                    "ActionTaker": roles_asignados[1],
-                    "Coach": roles_asignados[2]
-                }
-                st.json(st.session_state["roles"])
-            else:
-                st.error("No hay suficientes usuarios en WOR SGBS para asignar roles.")
-        elif user_code == "R2RGRAL":
-            st.subheader("📝 Asignación de Roles Semanal - R2R GRAL")
-            posibles = [code for code in valid_users if code not in {"R2RGRAL", "ALECCION", "WORLEAD", "LARANDA", "FALEAD", "ICLEAD", "KPI"} and code in group_r2r_gral]
-            if len(posibles) >= 2:
-                roles_asignados = random.sample(posibles, 2)
-                st.session_state["roles"] = {
-                    "Timekeeper": roles_asignados[0],
-                    "ActionTaker": roles_asignados[1]
-                }
-                st.json(st.session_state["roles"])
-            else:
-                st.error("No hay suficientes usuarios en R2R GRAL para asignar roles.")
-        elif user_code == "FALEAD":
-            st.subheader("📝 Asignación de Roles Semanal - FA")
-            posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "ICLEAD", "KPI"} and code in group_fa]
-            if len(posibles) >= 2:
-                roles_asignados = random.sample(posibles, 2)
-                st.session_state["roles"] = {
-                    "Timekeeper": roles_asignados[0],
-                    "ActionTaker": roles_asignados[1]
-                }
-                st.json(st.session_state["roles"])
-            else:
-                st.error("No hay suficientes usuarios en FA para asignar roles.")
-        elif user_code == "ICLEAD":
-            st.subheader("📝 Asignación de Roles Semanal - IC")
-            posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "KPI"} and code in group_ic]
-            if len(posibles) >= 3:
-                roles_asignados = random.sample(posibles, 3)
-                st.session_state["roles"] = {
-                    "Timekeeper": roles_asignados[0],
-                    "ActionTaker": roles_asignados[1],
-                    "Coach": roles_asignados[2]
-                }
-                st.json(st.session_state["roles"])
-            else:
-                st.error("No hay suficientes usuarios en IC para asignar roles.")
-        else:
-            st.error("Acceso denegado. Esta opción es exclusiva para los TL.")
-    
-    # ------------------- Compliance -------------------
-    elif menu_choice == "Compliance":
-        if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
-            st.subheader("📝 Compliance - Feedback")
-            feedback_options = [code for code in valid_users if code != user_code]
-            target_user = st.selectbox("Dar feedback a:", feedback_options, format_func=lambda x: f"{valid_users.get(x, x)} ({x})")
-            feedback = st.text_area("Feedback:")
-            if st.button("Enviar Feedback"):
-                db.collection("compliance").add({
-                    "from": user_code,
-                    "to": target_user,
-                    "feedback": feedback,
-                    "fecha": datetime.now().strftime("%Y-%m-%d")
-                })
-                st.success("Feedback enviado.")
-        else:
-            st.error("Acceso denegado. Esta opción es exclusiva para los TL o el Coach.")
-    
-    # ------------------- Todas las Tareas (solo para TL) -------------------
-    elif menu_choice == "Todas las Tareas":
-        if user_code not in TL_USERS:
-            st.error("Esta opción es exclusiva para perfiles de Team Lead.")
-        else:
-            st.subheader("🗂️ Todas las Tareas")
-            st.markdown("### Tareas TOP3")
-            tasks_top3 = [task for task in db.collection("top3").stream() 
-                          if (task.to_dict().get("usuario")[0] if isinstance(task.to_dict().get("usuario"), list)
-                              else task.to_dict().get("usuario")) in get_team_for_tl(user_code)]
-            if tasks_top3:
-                for task in tasks_top3:
-                    task_data = task.to_dict()
-                    st.markdown(f"**[TOP 3] {task_data.get('descripcion','(Sin descripción)')}**")
-                    st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
-                    usuario_field = task_data.get("usuario", "")
-                    origen_field = task_data.get("origen", None)
-                    if origen_field:
-                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador) - Creado por: {valid_users.get(origen_field, origen_field)}")
-                    else:
-                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)}")
-                    status = task_data.get('status', '')
-                    color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
-                    st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("Actualizar Status", key=f"update_top3_{task_data.get('id')}"):
-                            new_status = st.selectbox("Editar status", ["Pendiente", "En proceso", "Completado"],
-                                                      index=(["Pendiente", "En proceso", "Completado"].index(status)
-                                                             if status in ["Pendiente", "En proceso", "Completado"] else 0),
-                                                      key=f"top3_status_{task_data.get('id')}")
-                            custom_status = st.text_input("Status personalizado (opcional)", key=f"top3_custom_{task_data.get('id')}")
-                            final_status = get_status(new_status, custom_status)
-                            fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else task_data.get("fecha_real", "")
-                            db.collection("top3").document(task_data.get("id")).update({
-                                "status": final_status,
-                                "fecha_real": fecha_real
-                            })
-                            st.success("Status actualizado.")
-                    with col2:
-                        if st.button("🗑️ Eliminar", key=f"delete_top3_{task_data.get('id')}"):
-                            db.collection("top3").document(task_data.get("id")).delete()
-                            st.success("Tarea eliminada.")
-                    st.markdown("---")
-            else:
-                st.info("No hay tareas TOP3 asignadas.")
-            
-            st.markdown("### Tareas Action Board")
-            tasks_actions = [action for action in db.collection("actions").stream() 
-                             if (action.to_dict().get("usuario")[0] if isinstance(action.to_dict().get("usuario"), list)
-                                 else action.to_dict().get("usuario")) in get_team_for_tl(user_code)]
-            if tasks_actions:
-                for action in tasks_actions:
-                    action_data = action.to_dict()
-                    st.markdown(f"**[Action Board] {action_data.get('accion','(Sin descripción)')}**")
-                    st.write(f"Inicio: {action_data.get('fecha_inicio','')}, Compromiso: {action_data.get('fecha_compromiso','')}, Real: {action_data.get('fecha_real','')}")
-                    usuario_field = action_data.get("usuario", "")
-                    origen_field = action_data.get("origen", None)
-                    if origen_field:
-                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador) - Creado por: {valid_users.get(origen_field, origen_field)}")
-                    else:
-                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)}")
-                    status = action_data.get('status', '')
-                    color = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}.get(status, "black")
-                    st.markdown(f"**Status:** <span style='color: {color};'>{status}</span>", unsafe_allow_html=True)
-                    col1, col2 = st.columns(2)
-                    with col1:
-                        if st.button("Actualizar Status", key=f"update_action_{action_data.get('id')}"):
-                            new_status = st.selectbox("Editar status", ["Pendiente", "En proceso", "Completado"],
-                                                      index=(["Pendiente", "En proceso", "Completado"].index(status)
-                                                             if status in ["Pendiente", "En proceso", "Completado"] else 0),
-                                                      key=f"action_status_{action_data.get('id')}")
-                            custom_status = st.text_input("Status personalizado (opcional)", key=f"action_custom_{action_data.get('id')}")
-                            final_status = get_status(new_status, custom_status)
-                            fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else action_data.get("fecha_real", "")
-                            db.collection("actions").document(action_data.get("id")).update({
-                                "status": final_status,
-                                "fecha_real": fecha_real
-                            })
-                            st.success("Status actualizado.")
-                    with col2:
-                        if st.button("🗑️ Eliminar", key=f"delete_action_{action_data.get('id')}"):
-                            db.collection("actions").document(action_data.get("id")).delete()
-                            st.success("Acción eliminada.")
-                    st.markdown("---")
-            else:
-                st.info("No hay tareas Action Board asignadas.")
     
     # ------------------- Store DBSCHENKER -------------------
     elif menu_choice == "Store DBSCHENKER":
