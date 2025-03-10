@@ -10,14 +10,14 @@ import pandas as pd
 # Definición de usuarios y áreas
 # ================================
 valid_users = {
-    # R2R NAMER (agregamos MACANO aquí)
+    # R2R NAMER (incluye MACANO)
     "VREYES": "Reyes Escorsia Victor Manuel",
     "RCRUZ": "Cruz Madariaga Rodrigo",
     "AZENTENO": "Zenteno Perez Alejandro",
     "XGUTIERREZ": "Gutierrez Hernandez Ximena",
     "CNAPOLES": "Napoles Escalante Christopher Enrique",
-    "MACANO": "Marco Antonio Cano Calzada",  # nuevo usuario en R2R NAMER
-    # R2R LATAM (sin Miriam Sánchez, ya se usará en R2R GRAL)
+    "MACANO": "Marco Antonio Cano Calzada",
+    # R2R LATAM (sin Miriam Sánchez, se usará en R2R GRAL)
     "MHERNANDEZ": "Hernandez Ponce Maria Guadalupe",
     "MGARCIA": "Garcia Vazquez Mariana Aketzalli",
     "PSARACHAGA": "Paula Sarachaga",
@@ -50,7 +50,7 @@ valid_users = {
     "ICLEAD": "TL IC"
 }
 
-# Agrupamos según área (agregamos MACANO a group_namer)
+# Agrupamos según área
 group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES", "MACANO"}
 group_latam    = {"MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
@@ -170,7 +170,6 @@ def show_main_app():
     
     # ------------------- Asistencia -------------------
     if menu_choice == "Asistencia":
-        # Si el usuario NO es TL, se muestra el formulario de registro.
         if user_code not in TL_USERS:
             st.subheader("📝 Registro de Asistencia")
             today_date = datetime.now().strftime("%Y-%m-%d")
@@ -193,7 +192,6 @@ def show_main_app():
             st.write("Nivel de energía (elige entre 10, 20, 30, 40 o 50):")
             energy_options = [10, 20, 30, 40, 50]
             energy_level = st.radio("Nivel de energía:", options=energy_options, horizontal=True)
-            # Representación en formato de batería
             battery_html = f"""
             <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px; position: relative;">
               <div style="position: absolute; bottom: 0; width: 100%; height: {energy_level}%; background-color: #00ff00;"></div>
@@ -209,38 +207,38 @@ def show_main_app():
                 })
                 st.success("Asistencia registrada correctamente.")
         else:
-            # Para TL, se muestra un resumen con el día, nivel de energía y emociones de su equipo.
+            # Para TL: se muestra una tabla resumen con el día, asistencia, feeling, pregunta de la semana y nivel de energía
             st.subheader("📊 Resumen de Asistencia de tu equipo")
             team = get_team_for_tl(user_code)
-            data_list = []
-            emotion_list = []
+            attendance_list = []
             for u in team:
                 doc = db.collection("attendance").document(u).get()
                 if doc.exists:
                     info = doc.to_dict()
-                    energy = info.get("energia", 0)
-                    emotion = info.get("estado_animo", "Sin registro")
+                    attendance = "✅"
+                    feeling = info.get("estado_animo", "N/A")
                     fecha = info.get("fecha", "N/A")
-                    data_list.append({"Usuario": valid_users.get(u, u), "Energía": energy, "Día": fecha})
-                    emotion_list.append({"Usuario": valid_users.get(u, u), "Emoción": emotion})
-            if data_list:
-                df_energy = pd.DataFrame(data_list)
-                st.markdown("#### Nivel de energía por usuario")
-                st.bar_chart(df_energy.set_index("Usuario")["Energía"])
-                st.markdown("**Detalle de días:**")
-                st.dataframe(df_energy[["Usuario", "Día"]])
+                    pregunta = info.get("problema_salud", "N/A")
+                    energia = f"{info.get('energia', 0)}%"
+                else:
+                    attendance = "❌"
+                    feeling = "N/A"
+                    fecha = "N/A"
+                    pregunta = "N/A"
+                    energia = "N/A"
+                attendance_list.append({
+                    "Nombre": valid_users.get(u, u),
+                    "Asistencia": attendance,
+                    "Feeling": feeling,
+                    "Fecha": fecha,
+                    "Pregunta de la semana": pregunta,
+                    "Nivel de energía": energia
+                })
+            if attendance_list:
+                df_attendance = pd.DataFrame(attendance_list)
+                st.table(df_attendance)
             else:
                 st.info("No hay datos de asistencia para mostrar.")
-            if emotion_list:
-                df_emotion = pd.DataFrame(emotion_list)
-                emotion_summary = df_emotion["Emoción"].value_counts().reset_index()
-                emotion_summary.columns = ["Emoción", "Cantidad"]
-                st.markdown("#### Resumen de emociones")
-                st.bar_chart(emotion_summary.set_index("Emoción"))
-                st.markdown("**Detalle de emociones:**")
-                st.dataframe(df_emotion)
-            else:
-                st.info("No hay registros de emociones.")
     
     # ------------------- Top 3 -------------------
     elif menu_choice == "Top 3":
@@ -252,24 +250,19 @@ def show_main_app():
             for task in db.collection("top3").stream():
                 data = task.to_dict()
                 usuario = data.get("usuario")
-                # Se asume que "usuario" puede ser un string o una lista
                 primary = usuario[0] if isinstance(usuario, list) else usuario
                 if primary in team:
                     tasks.append(task)
         else:
             tasks = list(db.collection("top3").where("usuario", "==", user_code).stream())
+        # Se agrupan las tareas por usuario (simplificado)
         groups = {}
-        # Agrupamos las tareas por área (función ya definida en versiones previas)
-        def group_tasks(tasks):
-            groups = {}
-            for task in tasks:
-                data = task.to_dict()
-                data["id"] = task.id
-                usuario = data.get("usuario")
-                primary = usuario[0] if isinstance(usuario, list) else usuario
-                groups.setdefault(primary, []).append(data)
-            return groups
-        groups = group_tasks(tasks)
+        for task in tasks:
+            data = task.to_dict()
+            data["id"] = task.id
+            usuario = data.get("usuario")
+            primary = usuario[0] if isinstance(usuario, list) else usuario
+            groups.setdefault(primary, []).append(data)
         status_colors = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}
         def get_status(selected, custom):
             return custom.strip() if custom and custom.strip() != "" else selected
@@ -338,7 +331,6 @@ def show_main_app():
     # ------------------- Action Board -------------------
     elif menu_choice == "Action Board":
         st.subheader("✅ Acciones y Seguimiento - Resumen")
-        # Para TL, se muestran las acciones de su equipo
         if user_code in TL_USERS:
             team = get_team_for_tl(user_code)
             actions = []
@@ -351,16 +343,12 @@ def show_main_app():
         else:
             actions = list(db.collection("actions").where("usuario", "==", user_code).stream())
         groups_actions = {}
-        def group_tasks(tasks):
-            groups = {}
-            for task in tasks:
-                data = task.to_dict()
-                data["id"] = task.id
-                usuario = data.get("usuario")
-                primary = usuario[0] if isinstance(usuario, list) else usuario
-                groups.setdefault(primary, []).append(data)
-            return groups
-        groups_actions = group_tasks(actions)
+        for action in actions:
+            data = action.to_dict()
+            data["id"] = action.id
+            usuario = data.get("usuario")
+            primary = usuario[0] if isinstance(usuario, list) else usuario
+            groups_actions.setdefault(primary, []).append(data)
         status_colors = {"Pendiente": "red", "En proceso": "orange", "Completado": "green"}
         def get_status(selected, custom):
             return custom.strip() if custom and custom.strip() != "" else selected
@@ -480,10 +468,8 @@ def show_main_app():
     
     # ------------------- Recognition -------------------
     elif menu_choice == "Recognition":
-        # Diferenciar entre usuarios normales y TL
         if user_code not in TL_USERS:
             st.subheader("Reconocimientos otorgados")
-            # Mostrar recognitions recibidos donde el destinatario es el usuario
             recs = [doc.to_dict() for doc in db.collection("recognitions").stream() if doc.to_dict().get("destinatario") == user_code]
             if recs:
                 for rec in recs:
@@ -493,10 +479,8 @@ def show_main_app():
                     st.markdown("---")
             else:
                 st.info("No has recibido reconocimientos.")
-            # Permitir enviar un nuevo reconocimiento
             with st.form("recognition_form"):
-                st.markdown(f"**Enviar Reconocimiento**")
-                # El remitente se toma automáticamente
+                st.markdown("**Enviar Reconocimiento**")
                 st.markdown(f"**De:** {valid_users[user_code]} ({user_code})")
                 destinatario = st.selectbox("Para:", [code for code in valid_users if code != user_code],
                                               format_func=lambda x: f"{valid_users[x]} ({x})")
