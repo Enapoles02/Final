@@ -68,8 +68,8 @@ if "user_code" not in st.session_state:
     st.session_state["user_code"] = None
 
 def show_login():
-    st.title("🔥 Daily Huddle - Login")
-    st.write("Ingresa tu código de usuario (ej.: CNAPOLES, R2RGRAL, WORLEAD, FALEAD, ICLEAD, MACANO, KPI, etc.)")
+    st.title("⚡ Daily Huddle - Login")
+    st.write("Bienvenido!! Ingresa tu código de usuario")
     user_input = st.text_input("Código de usuario:", max_chars=20)
     if st.button("Ingresar"):
         user_input = user_input.strip().upper()
