@@ -803,11 +803,18 @@ def show_main_app():
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para los TL o el Coach.")
     
-    # ------------------- Todas las Tareas -------------------
+       # ------------------- Todas las Tareas -------------------
     elif menu_choice == "Todas las Tareas":
         st.subheader("🗂️ Todas las Tareas")
+        
+        # TOP 3
         st.markdown("### Tareas de Top 3")
-        tasks_top3 = list(db.collection("top3").stream())
+        if user_code in TL_USERS:
+            team = get_team_for_tl(user_code)
+            tasks_top3 = [task for task in db.collection("top3").stream() 
+                          if (task.to_dict().get("usuario")[0] if isinstance(task.to_dict().get("usuario"), list) else task.to_dict().get("usuario")) in team]
+        else:
+            tasks_top3 = list(db.collection("top3").where("usuario", "==", user_code).stream())
         if tasks_top3:
             for task in tasks_top3:
                 task_data = task.to_dict()
@@ -820,8 +827,15 @@ def show_main_app():
                 st.markdown("---")
         else:
             st.info("No hay tareas de Top 3 registradas.")
+        
+        # ACTION BOARD
         st.markdown("### Tareas de Action Board")
-        tasks_actions = list(db.collection("actions").stream())
+        if user_code in TL_USERS:
+            team = get_team_for_tl(user_code)
+            tasks_actions = [action for action in db.collection("actions").stream() 
+                             if (action.to_dict().get("usuario")[0] if isinstance(action.to_dict().get("usuario"), list) else action.to_dict().get("usuario")) in team]
+        else:
+            tasks_actions = list(db.collection("actions").where("usuario", "==", user_code).stream())
         if tasks_actions:
             for action in tasks_actions:
                 action_data = action.to_dict()
@@ -834,6 +848,7 @@ def show_main_app():
                 st.markdown("---")
         else:
             st.info("No hay acciones registradas.")
+
     
     # ------------------- Store DBSCHENKER -------------------
     elif menu_choice == "Store DBSCHENKER":
