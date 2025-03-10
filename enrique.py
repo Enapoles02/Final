@@ -330,11 +330,10 @@ def show_main_app():
             for task_data in t_list:
                 st.markdown(f"- [TOP 3] {task_data.get('descripcion','(Sin descripción)')}")
                 st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
-                # Si la tarea tiene el campo 'origen', se muestra quien la creó además del colaborador.
                 usuario_field = task_data.get("usuario", "")
                 origen_field = task_data.get("origen", None)
                 if origen_field:
-                    st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador), Creado por: {valid_users.get(origen_field, origen_field)}")
+                    st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador) - Creado por: {valid_users.get(origen_field, origen_field)}")
                 else:
                     st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)}")
                 status_val = task_data.get('status','')
@@ -371,7 +370,7 @@ def show_main_app():
                 }
                 # Tarea principal
                 db.collection("top3").add(data)
-                # Replicar para cada colaborador y almacenar el origen
+                # Replicar para cada colaborador (y almacenar el origen)
                 if colaboradores:
                     for collab in colaboradores:
                         data_collab = data.copy()
@@ -410,11 +409,10 @@ def show_main_app():
             for act_data in acts:
                 st.markdown(f"- [Action Board] {act_data.get('accion','(Sin descripción)')}")
                 st.write(f"Inicio: {act_data.get('fecha_inicio','')}, Compromiso: {act_data.get('fecha_compromiso','')}, Real: {act_data.get('fecha_real','')}")
-                # Mostrar colaborador y origen si existe
                 usuario_field = act_data.get("usuario", "")
                 origen_field = act_data.get("origen", None)
                 if origen_field:
-                    st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador), Creado por: {valid_users.get(origen_field, origen_field)}")
+                    st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador) - Creado por: {valid_users.get(origen_field, origen_field)}")
                 else:
                     st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)}")
                 status_val = act_data.get('status','')
@@ -436,7 +434,7 @@ def show_main_app():
                 privado = st.checkbox("Marcar como privado")
                 submit_new_action = st.form_submit_button("Guardar acción")
             if submit_new_action:
-                final_status = custom_status.strip() if custom_status.strip() != "" else s
+                final_status = get_status(s, custom_status)
                 fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else ""
                 data = {
                     "usuario": user_code,
@@ -782,7 +780,7 @@ def show_main_app():
         else:
             st.error("Acceso denegado. Esta opción es exclusiva para los TL o el Coach.")
     
-    # ------------------- Todas las Tareas (solo TL) -------------------
+    # ------------------- Todas las Tareas (solo para TL) -------------------
     elif menu_choice == "Todas las Tareas":
         if user_code not in TL_USERS:
             st.error("Esta opción es exclusiva para perfiles de Team Lead.")
@@ -801,7 +799,7 @@ def show_main_app():
                     usuario_field = task_data.get("usuario", "")
                     origen_field = task_data.get("origen", None)
                     if origen_field:
-                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador), Creado por: {valid_users.get(origen_field, origen_field)}")
+                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador) - Creado por: {valid_users.get(origen_field, origen_field)}")
                     else:
                         st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)}")
                     status = task_data.get('status', '')
@@ -823,7 +821,7 @@ def show_main_app():
                     usuario_field = action_data.get("usuario", "")
                     origen_field = action_data.get("origen", None)
                     if origen_field:
-                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador), Creado por: {valid_users.get(origen_field, origen_field)}")
+                        st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)} (Colaborador) - Creado por: {valid_users.get(origen_field, origen_field)}")
                     else:
                         st.markdown(f"**Usuario:** {valid_users.get(usuario_field, usuario_field)}")
                     status = action_data.get('status', '')
