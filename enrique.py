@@ -32,7 +32,7 @@ valid_users = {
     "MSANCHEZ": "Miriam Sanchez",
     # WOR SGBS:
     "MLOPEZ": "Miguel Lopez",
-    "GMAJORAL": "Guillermo Mayoral",
+    "GMAYORAL": "Guillermo Mayoral",
     "BOSNAYA": "Becerril Osnaya",
     "JTHIAGO": "Jose Thiago",
     "IOROZCO": "Isaac Orozco",
@@ -62,7 +62,7 @@ valid_users = {
 group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES", "MACANO"}
 group_latam    = {"MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
-group_wor      = {"MLOPEZ", "GMAJORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
+group_wor      = {"MLOPEZ", "GMAYORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
 group_fa       = {"GAVILES", "JLOPEZ", "FALEAD", "ABARRERA"}
 group_ic       = {"CCIBARRA", "LEDYANEZ", "EIMARTINEZ", "ICLEAD", "AHERRERA", "ANAHERRERA", "JBECERRIL", "MPEREZ", "JREYES"}
 
@@ -593,7 +593,7 @@ def show_main_app():
     elif menu_choice == "Escalation":
         st.subheader("⚠️ Escalation")
         escalador = user_code
-        common_options = {"MLOPEZ", "GMAJORAL", "LARANDA"}
+        common_options = {"MLOPEZ", "GMAYORAL", "LARANDA"}
         if user_code in group_fa:
             additional = {"ABARRERA"}
         elif user_code in group_ic:
