@@ -31,7 +31,7 @@ valid_users = {
     "MSANCHEZ": "Miriam Sanchez",
     # WOR SGBS:
     "MLOPEZ": "Miguel Lopez",
-    "GMAJORAL": "Guillermo Mayoral",
+    "GMAYORAL": "Guillermo Mayoral",
     "BOSNAYA": "Becerril Osnaya",
     "JTHIAGO": "Jose Thiago",
     "IOROZCO": "Isaac Orozco",
@@ -55,7 +55,7 @@ valid_users = {
 group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES", "MACANO"}
 group_latam    = {"MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
-group_wor      = {"MLOPEZ", "GMAJORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
+group_wor      = {"MLOPEZ", "GMAYORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
 group_fa       = {"GAVILES", "JLOPEZ", "FALEAD", "ABARRERA"}
 group_ic       = {"CCIBARRA", "LEDYANEZ", "EIMARTINEZ", "ICLEAD"}
 
@@ -237,8 +237,8 @@ def show_main_app():
             selected_feeling = st.radio("Selecciona tu estado de ánimo:", list(feelings.keys()))
             health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
             st.write("Nivel de energía")
-            energy_options = [20, 40, 60, 80, 100]
-            energy_level = st.radio("Nivel de energía:", options=energy_options, horizontal=True)
+            energy_options = [20%, 40%, 60%, 80%, 100%]
+            energy_level = st.radio("Seleccione uno de los porcentajes:", options=energy_options, horizontal=True)
             battery_html = f"""
             <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px; position: relative;">
               <div style="position: absolute; bottom: 0; width: 100%; height: {energy_level}%; background-color: #00ff00;"></div>
@@ -497,7 +497,7 @@ def show_main_app():
     elif menu_choice == "Escalation":
         st.subheader("⚠️ Escalation")
         escalador = user_code
-        common_options = {"MLOPEZ", "GMAJORAL", "LARANDA"}
+        common_options = {"MLOPEZ", "GMAYORAL", "LARANDA"}
         if user_code in group_fa:
             additional = {"ABARRERA"}
         elif user_code in group_ic:
