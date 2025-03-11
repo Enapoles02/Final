@@ -68,8 +68,8 @@ if "user_code" not in st.session_state:
     st.session_state["user_code"] = None
 
 def show_login():
-    st.title("⚡ Daily Huddle - Login")
-    st.write("Bienvenido!! Ingresa tu código de usuario")
+    st.title("⚡ Daily Huddle - Login ⚡")
+    st.write("Porfavor Ingresa tu código de usuario")
     user_input = st.text_input("Código de usuario:", max_chars=20)
     if st.button("Ingresar"):
         user_input = user_input.strip().upper()
@@ -215,7 +215,7 @@ def show_main_app():
     st.image("http://bulk-distributor.com/wp-content/uploads/2016/01/DB-Schenker-Hub-Salzburg.jpg",
              caption="DB Schenker", use_container_width=True)
     
-    st.title("🔥 Daily Huddle")
+    st.title("⚡ Daily Huddle ⚡")
     st.markdown(f"**Usuario:** {valid_users[user_code]}  ({user_code})")
     menu_choice = st.sidebar.selectbox("📌 Selecciona una pestaña:",
                                          ["Asistencia", "Top 3", "Action Board", "Escalation", "Recognition", 
@@ -236,8 +236,8 @@ def show_main_app():
             feelings = {"😃": "Feliz", "😐": "Normal", "😔": "Triste", "😡": "Molesto", "😴": "Cansado", "🤒": "Enfermo"}
             selected_feeling = st.radio("Selecciona tu estado de ánimo:", list(feelings.keys()))
             health_problem = st.radio("❓ ¿Te has sentido con problemas de salud esta semana?", ["Sí", "No"])
-            st.write("Nivel de energía (elige entre 10, 20, 30, 40 o 50):")
-            energy_options = [10, 20, 30, 40, 50]
+            st.write("Nivel de energía")
+            energy_options = [20, 40, 60, 80, 100]
             energy_level = st.radio("Nivel de energía:", options=energy_options, horizontal=True)
             battery_html = f"""
             <div style="display: inline-block; border: 2px solid #000; width: 40px; height: 100px; position: relative;">
