@@ -190,6 +190,22 @@ def show_timer():
         st.write(f"Tiempo restante: {minutes:02d}:{seconds:02d}")
 
 # ================================
+# Función para enviar una tarea de Action Board a Top 3
+# Ahora se revisa si se pasó un DocumentReference o un Snapshot.
+# ================================
+def send_action_to_top3(action_obj):
+    # Si no tiene el método to_dict, asumimos que es un DocumentReference
+    if not hasattr(action_obj, "to_dict"):
+        action_obj = action_obj.get()
+    data = action_obj.to_dict()
+    new_data = data.copy()
+    new_data.pop("timestamp", None)
+    new_data["fecha_inicio"] = datetime.now().strftime("%Y-%m-%d")
+    new_data["group_id"] = str(uuid.uuid4())
+    db.collection("top3").add(new_data)
+    st.success("Tarea enviada de Action Board a Top 3.")
+
+# ================================
 # Dashboard KPI (para usuario KPI)
 # ================================
 def show_kpi_dashboard():
@@ -235,18 +251,6 @@ def show_kpi_dashboard():
     st.markdown("Aquí se pueden agregar más gráficos y reportes según lo requieras.")
 
 # ================================
-# Función para enviar una tarea de Action Board a Top 3
-# ================================
-def send_action_to_top3(action_doc):
-    data = action_doc.to_dict()
-    new_data = data.copy()
-    new_data.pop("timestamp", None)
-    new_data["fecha_inicio"] = datetime.now().strftime("%Y-%m-%d")
-    new_data["group_id"] = str(uuid.uuid4())
-    db.collection("top3").add(new_data)
-    st.success("Tarea enviada de Action Board a Top 3.")
-
-# ================================
 # App Principal
 # ================================
 def show_main_app():
@@ -257,7 +261,7 @@ def show_main_app():
         st.subheader("⏱ Timer (30 min)")
         show_timer()
 
-    # Botón de Asignar Roles para TL
+    # Botón de Asignar Roles para TL (siempre visible para TL)
     if user_code in TL_USERS:
         if st.button("Asignar Roles"):
             if user_code == "ALECCION":
@@ -388,7 +392,6 @@ def show_main_app():
                 st.markdown(f"- [TOP 3] {task_data.get('descripcion','(Sin descripción)')}")
                 st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
                 current_usuario = task_data.get("usuario", "")
-                # Si es TL, permitir modificar usuario
                 if user_code in TL_USERS:
                     new_usuario = st.selectbox("Modificar usuario", options=list(get_team_for_tl(current_usuario)), 
                                                 index=list(get_team_for_tl(current_usuario)).index(current_usuario),
@@ -402,7 +405,6 @@ def show_main_app():
                 else:
                     st.markdown(f"**Usuario:** {valid_users.get(current_usuario, current_usuario)}")
                 st.markdown(f"**Status:** <span style='color:{status_colors.get(task_data.get('status',''), 'black')};'>{task_data.get('status','')}</span>", unsafe_allow_html=True)
-                # Mecanismo de edición de status
                 edit_key = f"edit_top3_{task_data.get('id')}"
                 if st.session_state.get(edit_key, False):
                     new_status = st.selectbox("Nuevo status", ["Pendiente", "En proceso", "Completado"], key=f"top3_status_{task_data.get('id')}")
@@ -523,7 +525,6 @@ def show_main_app():
                 else:
                     st.markdown(f"**Usuario:** {valid_users.get(current_usuario, current_usuario)}")
                 st.markdown(f"**Status:** <span style='color:{status_colors.get(act_data.get('status',''), 'black')};'>{act_data.get('status','')}</span>", unsafe_allow_html=True)
-                # Mecanismo de edición de status en Action Board
                 edit_key = f"edit_action_{act_data.get('id')}"
                 if st.session_state.get(edit_key, False):
                     new_status = st.selectbox("Nuevo status", ["Pendiente", "En proceso", "Completado"], key=f"action_status_{act_data.get('id')}")
@@ -710,6 +711,338 @@ def show_main_app():
                     st.markdown("---")
             else:
                 st.info("No hay reconocimientos para mostrar.")
+    
+    # ------------------- Store DBSCHENKER -------------------
+    elif menu_choice == "Store DBSCHENKER":
+        st.subheader("🛍️ Store DBSCHENKER")
+        st.write("Productos corporativos (prototipo):")
+        products = [
+            {"name": "Taza DBS", "price": 10, "image": "https://via.placeholder.com/150?text=Taza+DBS"},
+            {"name": "Playera DBS", "price": 20, "image": "https://via.placeholder.com/150?text=Playera+DBS"},
+            {"name": "Gorra DBS", "price": 15, "image": "https://via.placeholder.com/150?text=Gorra+DBS"}
+        ]
+        for prod in products:
+            st.image(prod["image"], width=150)
+            st.markdown(f"**{prod['name']}** - {prod['price']} DB COINS")
+            if st.button(f"Comprar {prod['name']}", key=f"buy_{prod['name']}"):
+                st.info("Función de compra no implementada.")
+            st.markdown("---")
+    
+    # ------------------- Wallet -------------------
+    elif menu_choice == "Wallet":
+        st.subheader("💰 Mi Wallet (DB COINS)")
+        wallet_ref = db.collection("wallets").document(user_code)
+        doc = wallet_ref.get()
+        current_coins = 0
+        if doc.exists:
+            current_coins = doc.to_dict().get("coins", 0)
+        st.write(f"**Saldo actual:** {current_coins} DB COINS")
+        if user_code == "LARANDA":
+            add_coins = st.number_input("Generar DB COINS:", min_value=1, step=1, value=10)
+            if st.button("Generar DB COINS"):
+                new_balance = current_coins + add_coins
+                wallet_ref.set({"coins": new_balance})
+                st.success(f"Generados {add_coins} DB COINS. Nuevo saldo: {new_balance}.")
+            st.markdown("### Funciones Administrativas")
+            admin_key = st.text_input("Clave Admin", type="password")
+            if admin_key == "ADMIN123":
+                if st.button("Resetear todas las monedas a 0"):
+                    for u in valid_users:
+                        db.collection("wallets").document(u).set({"coins": 0})
+                target = st.selectbox("Generar monedas para el usuario:", list(valid_users.keys()),
+                                        format_func=lambda x: f"{valid_users[x]} ({x})")
+                amt = st.number_input("Cantidad de DB COINS a generar:", min_value=1, step=1, value=10)
+                if st.button("Generar para usuario seleccionado"):
+                    target_ref = db.collection("wallets").document(target)
+                    doc_target = target_ref.get()
+                    current = 0
+                    if doc_target.exists:
+                        current = doc_target.to_dict().get("coins", 0)
+                    target_ref.set({"coins": current + amt})
+                    st.success(f"Generados {amt} DB COINS para {valid_users[target]}.")
+    
+    # ------------------- Communications -------------------
+    elif menu_choice == "Communications":
+        st.subheader("📢 Mensajes Importantes")
+        mensaje = st.text_area("📝 Escribe un mensaje o anuncio")
+        if st.button("📩 Enviar mensaje"):
+            db.collection("communications").document().set({
+                "usuario": user_code,
+                "fecha": datetime.now().strftime("%Y-%m-%d"),
+                "mensaje": mensaje
+            })
+            st.success("Mensaje enviado.")
+    
+    # ------------------- Calendar -------------------
+    elif menu_choice == "Calendar":
+        st.subheader("📅 Calendario")
+        cal_option = st.radio("Selecciona una opción", ["Crear Evento", "Ver Calendario"])
+        if cal_option == "Crear Evento":
+            st.markdown("### Crear Evento")
+            evento = st.text_input("📌 Nombre del evento")
+            start_date, end_date = st.date_input("Selecciona el rango de fechas", value=(date.today(), date.today()))
+            tipo_evento = st.radio("Tipo de evento", ["Público", "Privado"])
+            if st.button("✅ Agendar evento"):
+                event_data = {
+                    "usuario": user_code,
+                    "evento": evento,
+                    "fecha": start_date.strftime("%Y-%m-%d"),
+                    "fecha_fin": end_date.strftime("%Y-%m-%d"),
+                    "publico": True if tipo_evento == "Público" else False
+                }
+                db.collection("calendar").document().set(event_data)
+                st.success("Evento agendado.")
+        else:
+            st.markdown("### Ver Calendario")
+            start_date, end_date = st.date_input("Selecciona el rango de fechas para ver eventos", value=(date.today(), date.today()))
+            events = []
+            for doc in db.collection("calendar").stream():
+                data = doc.to_dict()
+                if data.get("fecha"):
+                    event_date = datetime.strptime(data["fecha"], "%Y-%m-%d").date()
+                    if start_date <= event_date <= end_date:
+                        title = data.get("evento", "Evento")
+                        if not data.get("publico", False):
+                            title += f" (Privado - {data.get('usuario','')})"
+                        events.append({
+                            "title": title,
+                            "start": data.get("fecha")
+                        })
+            events_json = json.dumps(events)
+            calendar_html = f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <meta charset='utf-8' />
+              <link href='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.css' rel='stylesheet' />
+              <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.8/index.global.min.js'></script>
+              <style>
+                body {{
+                  margin: 0;
+                  padding: 0;
+                }}
+                #calendar {{
+                  max-width: 900px;
+                  margin: 40px auto;
+                }}
+              </style>
+            </head>
+            <body>
+              <div id='calendar'></div>
+              <script>
+                document.addEventListener('DOMContentLoaded', function() {{
+                  var calendarEl = document.getElementById('calendar');
+                  var calendar = new FullCalendar.Calendar(calendarEl, {{
+                    initialView: 'dayGridMonth',
+                    events: {events_json}
+                  }});
+                  calendar.render();
+                }});
+              </script>
+            </body>
+            </html>
+            """
+            components.html(calendar_html, height=600, scrolling=True)
+    
+    # ------------------- Consultorio Optimizacion -------------------
+    elif menu_choice == "Consultorio Optimizacion":
+        st.subheader("Consultorio de Optimización")
+        st.markdown("Envía un archivo y/o un mensaje para requerir apoyo. Esto se enviará a **CNAPOLES**.")
+        with st.form("consultorio_form"):
+            mensaje_consult = st.text_area("Describe tu requerimiento o tarea:")
+            archivo = st.file_uploader("Adjuntar archivo (opcional)")
+            submit_consult = st.form_submit_button("Enviar Consulta")
+        if submit_consult:
+            data_consult = {
+                "usuario": user_code,
+                "mensaje": mensaje_consult,
+                "archivo": archivo.name if archivo is not None else None,
+                "fecha": datetime.now().strftime("%Y-%m-%d"),
+                "destinatario": "CNAPOLES"
+            }
+            db.collection("consultorio").add(data_consult)
+            st.success("Consulta enviada a CNAPOLES.")
+    
+    # ------------------- Contacto -------------------
+    elif menu_choice == "Contacto":
+        st.subheader("Contacto / Reporte de Problemas")
+        st.markdown("Si tienes algún problema con la aplicación, por favor envía tu reporte aquí.")
+        with st.form("contacto_form"):
+            asunto_contact = st.text_input("Asunto:")
+            mensaje_contact = st.text_area("Describe tu problema o sugerencia:")
+            submit_contact = st.form_submit_button("Enviar Reporte")
+        if submit_contact:
+            data_contact = {
+                "usuario": user_code,
+                "asunto": asunto_contact,
+                "mensaje": mensaje_contact,
+                "fecha": datetime.now().strftime("%Y-%m-%d")
+            }
+            db.collection("contacto").add(data_contact)
+            st.success("Reporte enviado. Gracias por tu feedback.")
+    
+    # ------------------- Roles -------------------
+    elif menu_choice == "Roles":
+        if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"}:
+            st.subheader("📝 Asignación de Roles Semanal")
+            if st.button("Asignar Roles"):
+                if user_code == "ALECCION":
+                    posibles = [code for code in valid_users if code not in {"ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD", "KPI"}]
+                elif user_code == "WORLEAD":
+                    posibles = [code for code in valid_users if code not in {"WORLEAD", "ALECCION", "LARANDA", "R2RGRAL", "FALEAD", "ICLEAD", "KPI"} and code in group_wor]
+                elif user_code == "R2RGRAL":
+                    posibles = [code for code in valid_users if code not in {"R2RGRAL", "ALECCION", "WORLEAD", "LARANDA", "FALEAD", "ICLEAD", "KPI"} and code in group_r2r_gral]
+                elif user_code == "FALEAD":
+                    posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "ICLEAD", "KPI"} and code in group_fa]
+                elif user_code == "ICLEAD":
+                    posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "KPI"} and code in group_ic]
+                roles_asignados = random.sample(possibles, 3) if user_code in {"ALECCION", "WORLEAD", "ICLEAD"} else random.sample(possibles, 2)
+                st.session_state["roles"] = {
+                    "Timekeeper": roles_asignados[0],
+                    "ActionTaker": roles_asignados[1],
+                    "Coach": roles_asignados[2] if len(roles_asignados) == 3 else None
+                }
+                st.json(st.session_state["roles"])
+        else:
+            st.error("Acceso denegado. Esta opción es exclusiva para los TL.")
+    
+    # ------------------- Compliance -------------------
+    elif menu_choice == "Compliance":
+        if user_code in {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"} or ("roles" in st.session_state and st.session_state["roles"].get("Coach") == user_code):
+            st.subheader("📝 Compliance - Feedback")
+            feedback_options = [code for code in valid_users if code != user_code]
+            target_user = st.selectbox("Dar feedback a:", feedback_options, format_func=lambda x: f"{valid_users.get(x, x)} ({x})")
+            feedback = st.text_area("Feedback:")
+            if st.button("Enviar Feedback"):
+                db.collection("compliance").add({
+                    "from": user_code,
+                    "to": target_user,
+                    "feedback": feedback,
+                    "fecha": datetime.now().strftime("%Y-%m-%d")
+                })
+                st.success("Feedback enviado.")
+        else:
+            st.error("Acceso denegado. Esta opción es exclusiva para los TL o el Coach.")
+    
+    # ------------------- Todas las Tareas (solo para TL) -------------------
+    elif menu_choice == "Todas las Tareas":
+        if user_code not in TL_USERS:
+            st.error("Esta opción es exclusiva para perfiles de Team Lead.")
+        else:
+            st.subheader("🗂️ Todas las Tareas")
+            st.markdown("### Tareas TOP3")
+            tasks_top3 = [task for task in db.collection("top3").stream() 
+                          if (task.to_dict().get("usuario")[0] if isinstance(task.to_dict().get("usuario"), list)
+                              else task.to_dict().get("usuario")) in get_team_for_tl(user_code)]
+            if tasks_top3:
+                for task in tasks_top3:
+                    task_data = task.to_dict()
+                    st.markdown(f"**[TOP 3] {task_data.get('descripcion','(Sin descripción)')}**")
+                    st.write(f"Inicio: {task_data.get('fecha_inicio','')}, Compromiso: {task_data.get('fecha_compromiso','')}, Real: {task_data.get('fecha_real','')}")
+                    current_usuario = task_data.get("usuario", "")
+                    new_usuario = st.selectbox("Modificar usuario", options=list(get_team_for_tl(current_usuario)), 
+                                                index=list(get_team_for_tl(current_usuario)).index(current_usuario),
+                                                key=f"mod_usuario_top3_{task_data.get('id')}")
+                    if new_usuario != current_usuario:
+                        db.collection("top3").document(task_data.get("id")).update({"usuario": new_usuario})
+                        st.success("Usuario actualizado.")
+                    origen_field = task_data.get("origen", None)
+                    if origen_field:
+                        st.markdown(f"**Usuario:** {valid_users.get(current_usuario, current_usuario)} (Colaborador) - Creado por: {valid_users.get(origen_field, origen_field)}")
+                    else:
+                        st.markdown(f"**Usuario:** {valid_users.get(current_usuario, current_usuario)}")
+                    st.markdown(f"**Status:** <span style='color:{status_colors.get(task_data.get('status',''), 'black')};'>{task_data.get('status','')}</span>", unsafe_allow_html=True)
+                    edit_key = f"edit_top3_{task_data.get('id')}"
+                    if st.session_state.get(edit_key, False):
+                        new_status = st.selectbox("Nuevo status", ["Pendiente", "En proceso", "Completado"], key=f"top3_status_{task_data.get('id')}")
+                        custom_status = st.text_input("Status personalizado (opcional)", key=f"top3_custom_{task_data.get('id')}")
+                        if st.button("Guardar cambios", key=f"save_top3_{task_data.get('id')}"):
+                            final_status = get_status(new_status, custom_status)
+                            compromiso = task_data.get("fecha_compromiso", "")
+                            if compromiso:
+                                comp_date = datetime.strptime(compromiso, "%Y-%m-%d").date()
+                                time_label = "On time" if comp_date >= date.today() else "Delayed"
+                            else:
+                                time_label = "N/A"
+                            fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else task_data.get("fecha_real", "")
+                            db.collection("top3").document(task_data.get("id")).update({
+                                "status": final_status,
+                                "fecha_real": fecha_real,
+                                "time_label": time_label
+                            })
+                            st.success("Status actualizado.")
+                            st.session_state[edit_key] = False
+                    else:
+                        if st.button("Editar status", key=f"edit_btn_top3_{task_data.get('id')}"):
+                            st.session_state[edit_key] = True
+                    if st.button("🗑️ Eliminar", key=f"delete_top3_{task_data.get('id')}"):
+                        group_id = task_data.get("group_id")
+                        if group_id:
+                            delete_task_group("top3", group_id)
+                        else:
+                            db.collection("top3").document(task_data.get("id")).delete()
+                        st.success("Tarea eliminada.")
+                    st.markdown("---")
+            else:
+                st.info("No hay tareas TOP3 asignadas.")
+            
+            st.markdown("### Tareas Action Board")
+            tasks_actions = [action for action in db.collection("actions").stream() 
+                             if (action.to_dict().get("usuario")[0] if isinstance(action.to_dict().get("usuario"), list)
+                                 else action.to_dict().get("usuario")) in get_team_for_tl(user_code)]
+            if tasks_actions:
+                for action in tasks_actions:
+                    action_data = action.to_dict()
+                    st.markdown(f"**[Action Board] {action_data.get('accion','(Sin descripción)')}**")
+                    st.write(f"Inicio: {action_data.get('fecha_inicio','')}, Compromiso: {action_data.get('fecha_compromiso','')}, Real: {action_data.get('fecha_real','')}")
+                    current_usuario = action_data.get("usuario", "")
+                    new_usuario = st.selectbox("Modificar usuario", options=list(get_team_for_tl(current_usuario)), 
+                                                index=list(get_team_for_tl(current_usuario)).index(current_usuario),
+                                                key=f"mod_usuario_action_{action_data.get('id')}")
+                    if new_usuario != current_usuario:
+                        db.collection("actions").document(action_data.get("id")).update({"usuario": new_usuario})
+                        st.success("Usuario actualizado.")
+                    origen_field = action_data.get("origen", None)
+                    if origen_field:
+                        st.markdown(f"**Usuario:** {valid_users.get(current_usuario, current_usuario)} (Colaborador) - Creado por: {valid_users.get(origen_field, origen_field)}")
+                    else:
+                        st.markdown(f"**Usuario:** {valid_users.get(current_usuario, current_usuario)}")
+                    st.markdown(f"**Status:** <span style='color:{status_colors.get(action_data.get('status',''), 'black')};'>{action_data.get('status','')}</span>", unsafe_allow_html=True)
+                    edit_key = f"edit_action_{action_data.get('id')}"
+                    if st.session_state.get(edit_key, False):
+                        new_status = st.selectbox("Nuevo status", ["Pendiente", "En proceso", "Completado"], key=f"action_status_{action_data.get('id')}")
+                        custom_status = st.text_input("Status personalizado (opcional)", key=f"action_custom_{action_data.get('id')}")
+                        if st.button("Guardar cambios", key=f"save_action_{action_data.get('id')}"):
+                            final_status = get_status(new_status, custom_status)
+                            compromiso = action_data.get("fecha_compromiso", "")
+                            if compromiso:
+                                comp_date = datetime.strptime(compromiso, "%Y-%m-%d").date()
+                                time_label = "On time" if comp_date >= date.today() else "Delayed"
+                            else:
+                                time_label = "N/A"
+                            fecha_real = datetime.now().strftime("%Y-%m-%d") if final_status.lower() == "completado" else action_data.get("fecha_real", "")
+                            db.collection("actions").document(action_data.get("id")).update({
+                                "status": final_status,
+                                "fecha_real": fecha_real,
+                                "time_label": time_label
+                            })
+                            st.success("Status actualizado.")
+                            st.session_state[edit_key] = False
+                    else:
+                        if st.button("Editar status", key=f"edit_btn_action_{action_data.get('id')}"):
+                            st.session_state[edit_key] = True
+                    if st.button("🗑️ Eliminar", key=f"delete_action_{action_data.get('id')}"):
+                        group_id = action_data.get("group_id")
+                        if group_id:
+                            delete_task_group("actions", group_id)
+                        else:
+                            db.collection("actions").document(action_data.get("id")).delete()
+                        st.success("Acción eliminada.")
+                    if st.button("Enviar a Top3", key=f"send_to_top3_{action_data.get('id')}"):
+                        send_action_to_top3(db.collection("actions").document(action_data.get("id")))
+                    st.markdown("---")
+            else:
+                st.info("No hay tareas Action Board asignadas.")
     
     # ------------------- Store DBSCHENKER -------------------
     elif menu_choice == "Store DBSCHENKER":
