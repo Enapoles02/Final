@@ -249,6 +249,8 @@ def send_action_to_top3(action_doc):
     new_data.pop("timestamp", None)
     new_data["fecha_inicio"] = datetime.now().strftime("%Y-%m-%d")
     new_data["group_id"] = str(uuid.uuid4())
+    if "accion" in new_data and "descripcion" not in new_data:
+        new_data["descripcion"] = new_data.pop("accion")
     db.collection("top3").add(new_data)
     st.success("Tarea enviada de Action Board a Top 3.")
 
