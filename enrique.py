@@ -17,7 +17,7 @@ valid_users = {
     "RCRUZ": "Cruz Madariaga Rodrigo",
     "AZENTENO": "Zenteno Perez Alejandro",
     "XGUTIERREZ": "Gutierrez Hernandez Ximena",
-    "CNAPOLES": "Napoles Escorsante Christopher Enrique",
+    "CNAPOLES": "Napoles Escalante Christopher Enrique",
     "MACANO": "Marco Antonio Cano Calzada",
     # R2R LATAM
     "MHERNANDEZ": "Hernandez Ponce Maria Guadalupe",
@@ -78,7 +78,7 @@ if "user_code" not in st.session_state:
 
 def show_login():
     st.title("🔥 Daily Huddle - Login")
-    st.write("Ingresa tu código de usuario (ej.: CNAPOLES, R2RGRAL, WORLEAD, FALEAD, ICLEAD, KPI, etc.)")
+    st.write("Ingresa tu código de usuario")
     user_input = st.text_input("Código de usuario:", max_chars=20)
     if st.button("Ingresar"):
         user_input = user_input.strip().upper()
