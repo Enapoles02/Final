@@ -51,8 +51,7 @@ valid_users = {
     "LEDYANEZ": "Luis Enrique Delhumeau Yanez",
     "EIMARTINEZ": "Elizabeth Ibanez Martinez",
     "ICLEAD": "TL IC",
-    "AHERRERA": "Alexia Herrera",
-    "ANAHERRERA": "Ana Herrera",
+       "ANAHERRERA": "Ana Herrera",
     "JBECERRIL": "Jose Becerril",
     "MPEREZ": "Miguel Perez",
     "JREYES": "Jared Reyes",
@@ -68,7 +67,7 @@ group_latam    = {"MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
 group_wor      = {"MLOPEZ", "GMAYORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
 group_fa       = {"GAVILES", "JLOPEZ", "FALEAD", "ABARRERA"}
-group_ic       = {"LEDYANEZ", "EIMARTINEZ", "ICLEAD", "AHERRERA", "ANAHERRERA", "JBECERRIL", "MPEREZ", "JREYES", "EPALMA", "DSALAZAR"}
+group_ic       = {"LEDYANEZ", "EIMARTINEZ", "ICLEAD", "ANAHERRERA", "JBECERRIL", "MPEREZ", "JREYES", "EPALMA", "DSALAZAR"}
 
 TL_USERS = {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"}
 
