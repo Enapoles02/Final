@@ -18,7 +18,7 @@ valid_users = {
     "AZENTENO": "Zenteno Perez Alejandro",
     "XGUTIERREZ": "Gutierrez Hernandez Ximena",
     "CNAPOLES": "Napoles Escalante Christopher Enrique",
-    "MACANO": "Marco Antonio Cano Calzada",
+    "SANTCAST": "CASTILLO ALMAZAN SANTIAGO",
     "JULIOTOR": "Julio Eduardo Torres Cano",
     "RODAVALO": "Rodrigo Avalos Muro",
     # R2R LATAM
@@ -62,7 +62,7 @@ valid_users = {
     "KPI": "KPI Reporte"
 }
 
-group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES", "MACANO", "JULIOTOR", "RODAVALO"}
+group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES", "SANTCAST", "JULIOTOR", "RODAVALO"}
 group_latam    = {"MHERNANDEZ", "MGARCIA", "PSARACHAGA"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
 group_wor      = {"MLOPEZ", "GMAYORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
