@@ -55,7 +55,7 @@ valid_users = {
     "JBECERRIL": "Jose Becerril",
     "MPEREZ": "Miguel Perez",
     "JREYES": "Jared Reyes",
-    # Nuevos usuarios para IC:
+    "IMONSALV": "Ivonne Monsalvo",
     "EPALMA": "Edgar Palma",
     "DSALAZAR": "Diego Salazar",
     # Perfil KPI (este usuario mostrará el dashboard de KPIs)
