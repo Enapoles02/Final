@@ -437,6 +437,21 @@ def show_main_app():
         st.subheader("📌 Top 3 Prioridades - Resumen")
         if user_code in TL_USERS:
             team = get_team_for_tl(user_code)
+            if user_code == "ALECCION":
+                team_namer = [u for u in team if u in group_namer]
+                team_latam = [u for u in team if u in group_latam]
+                
+                filtro_region = st.radio("Filtrar por región:", ["Todas", "NAMER", "LATAM"], horizontal=True)
+                
+                if filtro_region == "NAMER":
+                    team = team_namer
+                elif filtro_region == "LATAM":
+                    team = team_latam
+            
+                selected_user = st.selectbox("Filtrar por usuario:", ["Todos"] + [valid_users[u] for u in team])
+                if selected_user != "Todos":
+                    team = [u for u in team if valid_users[u] == selected_user]
+
             tasks = []
             for task in db.collection("top3").stream():
                 data = task.to_dict()
@@ -584,6 +599,21 @@ def show_main_app():
         st.subheader("✅ Acciones y Seguimiento - Resumen")
         if user_code in TL_USERS:
             team = get_team_for_tl(user_code)
+            if user_code == "ALECCION":
+                team_namer = [u for u in team if u in group_namer]
+                team_latam = [u for u in team if u in group_latam]
+                
+                filtro_region = st.radio("Filtrar por región:", ["Todas", "NAMER", "LATAM"], horizontal=True)
+                
+                if filtro_region == "NAMER":
+                    team = team_namer
+                elif filtro_region == "LATAM":
+                    team = team_latam
+            
+                selected_user = st.selectbox("Filtrar por usuario:", ["Todos"] + [valid_users[u] for u in team])
+                if selected_user != "Todos":
+                    team = [u for u in team if valid_users[u] == selected_user]
+
             actions = []
             for action in db.collection("actions").stream():
                 data = action.to_dict()
