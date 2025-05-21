@@ -61,8 +61,9 @@ valid_users = {
     "EPALMA": "Edgar Palma",
     "DSALAZAR": "Diego Salazar",
     # Perfil KPI (este usuario mostrará el dashboard de KPIs)
-    "KPI": "KPI Reporte"
+    "KPI": "KPI Reporte",
     # OTC TL
+    "MHORTA": "Monica Horta",
     "JAVILA": "Julio Avila",
     "OTCLEAD": "OTC LEAD",
     "EAVILA": "Edson Avila",
