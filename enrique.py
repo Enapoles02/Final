@@ -68,6 +68,8 @@ valid_users = {
     "OTCLEAD": "OTC LEAD",
     "EAVILA": "Edson Avila",
     "LRODRIGUEZ": "Leticia Rodriguez",
+    "ROSMONTE": "Montes Angelica",
+    "RCRUZ": "Rodrigo Cruz",
 }
 
 group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES", "SANTCAST", "JULIOTOR", "RODAVALO"}
@@ -76,7 +78,7 @@ group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
 group_wor      = {"MLOPEZ", "GMAYORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
 group_fa       = {"GAVILES", "JLOPEZ", "FALEAD", "ABARRERA"}
 group_ic       = {"LEDYANEZ", "EIMARTINEZ", "ICLEAD", "ANAHERRERA", "JBECERRIL", "MPEREZ", "JREYES", "EPALMA", "DSALAZAR","IMONSALV"}
-group_otc       = {"MHORTA", "JAVILA", "OTCLEAD", "EAVILA", "LRODRIGUEZ"}
+group_otc       = {"MHORTA", "JAVILA", "OTCLEAD", "EAVILA", "LRODRIGUEZ","ROSMONTE"}
 
 
 TL_USERS = {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD","OTCLEAD"}
