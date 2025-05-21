@@ -41,6 +41,7 @@ valid_users = {
     "JTHIAGO": "Jose Thiago",
     "IOROZCO": "Isaac Orozco",
     "WORLEAD": "TL WOR SGBS",
+    "ACASTILLO": "Alejandra Castillo",
     # RH para WOR SGBS (monedas):
     "LARANDA": "RH - Luis Aranda",
     # FA:
@@ -61,6 +62,13 @@ valid_users = {
     "DSALAZAR": "Diego Salazar",
     # Perfil KPI (este usuario mostrará el dashboard de KPIs)
     "KPI": "KPI Reporte"
+    # OTC TL
+    "MHORTA": "Monica Horta",
+    "JAVILA": "Julio Avila",
+    "OTCLEAD": "OTC LEAD",
+    "EAVILA": "Edson Avila",
+    "LRODRIGUEZ": "Leticia Rodriguez",
+    
 }
 
 group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES", "SANTCAST", "JULIOTOR", "RODAVALO"}
@@ -69,8 +77,10 @@ group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
 group_wor      = {"MLOPEZ", "GMAYORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
 group_fa       = {"GAVILES", "JLOPEZ", "FALEAD", "ABARRERA"}
 group_ic       = {"LEDYANEZ", "EIMARTINEZ", "ICLEAD", "ANAHERRERA", "JBECERRIL", "MPEREZ", "JREYES", "EPALMA", "DSALAZAR","IMONSALV"}
+group_otc       = {"MHORTA", "JAVILA", "OTCLEAD", "EAVILA", "LRODRIGUEZ"}
 
-TL_USERS = {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD"}
+
+TL_USERS = {"ALECCION", "WORLEAD", "R2RGRAL", "FALEAD", "ICLEAD","OTCLEAD"}
 
 
 # ================================
@@ -138,6 +148,8 @@ def get_direct_boss(destinatario_code):
         return "FALEAD"
     elif destinatario_code in group_ic:
         return "ICLEAD"
+    elif destinatario_code in group_otc:
+        return "ICLEAD"
     else:
         return "N/A"
 
@@ -155,6 +167,8 @@ def get_team_for_tl(tl_code):
         return [u for u in valid_users if u in group_fa]
     elif tl_code == "ICLEAD":
         return [u for u in valid_users if u in group_ic]
+    else:
+        return [u for u in valid_users if u in group_otc]
     else:
         return [tl_code]
 
@@ -345,6 +359,8 @@ def show_main_app():
                 posibles = [code for code in valid_users if code not in {"FALEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "ICLEAD", "KPI"} and code in group_fa]
             elif user_code == "ICLEAD":
                 posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "KPI"} and code in group_ic]
+            elif user_code == "OTCLEAD":
+                posibles = [code for code in valid_users if code not in {"ICLEAD", "ALECCION", "WORLEAD", "LARANDA", "R2RGRAL", "FALEAD", "KPI"} and code in group_otc]
             roles_asignados = random.sample(possibles, 3) if user_code in {"ALECCION", "WORLEAD", "ICLEAD"} else random.sample(possibles, 2)
             st.session_state["roles"] = {
                 "Timekeeper": roles_asignados[0],
