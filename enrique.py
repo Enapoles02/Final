@@ -63,7 +63,6 @@ valid_users = {
     # Perfil KPI (este usuario mostrará el dashboard de KPIs)
     "KPI": "KPI Reporte"
     # OTC TL
-    "MOHORTA": "Monica Horta",
     "JAVILA": "Julio Avila",
     "OTCLEAD": "OTC LEAD",
     "EAVILA": "Edson Avila",
