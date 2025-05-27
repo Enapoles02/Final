@@ -158,7 +158,9 @@ def get_direct_boss(destinatario_code):
 # Función para obtener el equipo de un TL
 # ================================
 def get_team_for_tl(tl_code):
-    if tl_code == "WORLEAD":
+    if tl_code == "ALECCION":
+        return [u for u in valid_users if u in group_namer.union(group_latam)]
+    elif tl_code == "WORLEAD":
         return [u for u in valid_users if u in group_wor]
     elif tl_code == "R2RGRAL":
         return [u for u in valid_users if u in group_r2r_gral]
@@ -170,7 +172,6 @@ def get_team_for_tl(tl_code):
         return [u for u in valid_users if u in group_otc]
     else:
         return [tl_code]
-
 
 # ================================
 # Función para obtener la "fecha activa" (día laboral)
