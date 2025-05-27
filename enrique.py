@@ -26,6 +26,7 @@ valid_users = {
     "ALDEJESU": "Orozco Santiesteban Alejandro",
     "MGARCIA": "Garcia Vazquez Mariana Aketzalli",
     "PSARACHAGA": "Paula Sarachaga",
+    "JLAZCANO": "Lazcano Jose Francisco",
     # TL para GL NAMER & LATAM:
     "ALECCION": "TL GL NAMER LATAM",
     # R2R GRAL:
@@ -73,7 +74,7 @@ valid_users = {
 }
 
 group_namer    = {"VREYES", "RCRUZ", "AZENTENO", "XGUTIERREZ", "CNAPOLES", "SANTCAST", "JULIOTOR", "RODAVALO"}
-group_latam    = {"MHERNANDEZ", "MGARCIA", "PSARACHAGA","ALDEJESU"}
+group_latam    = {"MHERNANDEZ", "MGARCIA", "PSARACHAGA","ALDEJESU","JLAZCANO"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
 group_wor      = {"MLOPEZ", "GMAYORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
 group_fa       = {"GAVILES", "JLOPEZ", "FALEAD", "ABARRERA"}
