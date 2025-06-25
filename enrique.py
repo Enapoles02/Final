@@ -61,6 +61,7 @@ valid_users = {
     "IMONSALV": "Ivonne Monsalvo",
     "EPALMA": "Edgar Palma",
     "DSALAZAR": "Diego Salazar",
+    "OSQUIROZ": "Oscar Quiroz",
     # Perfil KPI (este usuario mostrará el dashboard de KPIs)
     "KPI": "KPI Reporte",
     # OTC TL
@@ -78,7 +79,7 @@ group_latam    = {"MHERNANDEZ", "MGARCIA", "PSARACHAGA","ALDEJESU","JLAZCANO"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
 group_wor      = {"MLOPEZ", "GMAYORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
 group_fa       = {"GAVILES", "JLOPEZ", "FALEAD", "ABARRERA"}
-group_ic       = {"LEDYANEZ", "EIMARTINEZ", "ICLEAD", "ANAHERRERA", "JBECERRIL", "MPEREZ", "JREYES", "EPALMA", "DSALAZAR","IMONSALV"}
+group_ic       = {"LEDYANEZ", "EIMARTINEZ", "ICLEAD", "ANAHERRERA", "JBECERRIL", "MPEREZ", "JREYES", "EPALMA", "DSALAZAR","IMONSALV","OSQUIROZ"}
 group_otc       = {"MHORTA", "JAVILA", "OTCLEAD", "EAVILA", "LRODRIGUEZ","ROSMONTE"}
 
 
