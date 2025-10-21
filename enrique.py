@@ -62,7 +62,7 @@ valid_users = {
     "OSQUIROZ": "Oscar Quiroz",
     "VHERNANDEZ": "Victor Hernandez",
     "DROJAS": "Daniel Rojas",
-    "AROBLES" Aldo Rodriguez Robles,
+    "AROBLES": "Aldo Rodriguez Robles",
     # Perfil KPI (este usuario mostrará el dashboard de KPIs)
     "KPI": "KPI Reporte",
     # OTC TL
@@ -1403,6 +1403,7 @@ def show_main_app():
             st.success("Reporte enviado. Gracias por tu feedback.")
     
 show_main_app()
+
 
 
 
