@@ -67,6 +67,8 @@ valid_users = {
     "MCABALLERO": "Caballero Monserrat",
     "MJASMIN": "Martinez Jasmin",
     "IFLORES": "Israel Flores",
+    "DSANTOS": "Diego Santos",
+    "JROBERTO": "Jaime Roberto",
     # Perfil KPI (este usuario mostrará el dashboard de KPIs)
     "KPI": "KPI Reporte",
     # OTC TL
@@ -84,7 +86,7 @@ group_latam    = {"MHERNANDEZ", "PSARACHAGA","ALDEJESU","JLAZCANO"}
 group_r2r_gral = {"ANDRES", "MIRIAMGRAL", "YAEL", "R2RGRAL", "MSANCHEZ"}
 group_wor      = {"MLOPEZ", "GMAYORAL", "BOSNAYA", "JTHIAGO", "IOROZCO", "WORLEAD", "LARANDA"}
 group_fa       = {"GAVILES", "JLOPEZ", "FALEAD", "ABARRERA"}
-group_ic       = {"ICLEAD", "ANAHERRERA", "JBECERRIL", "MPEREZ", "JREYES", "EPALMA", "DSALAZAR","IMONSALV","OSQUIROZ","MGARCIA","VHERNANDEZ","DROJAS","AROBLES","DPOZOS","MCABALLERO","MJASMIN","IFLORES"}
+group_ic       = {"ICLEAD", "ANAHERRERA", "JBECERRIL", "MPEREZ", "JREYES", "EPALMA", "DSALAZAR","IMONSALV","OSQUIROZ","MGARCIA","VHERNANDEZ","DROJAS","AROBLES","DPOZOS","MCABALLERO","MJASMIN","IFLORES,"DSANTOS","JROBERTO"}
 group_otc       = {"MHORTA", "JAVILA", "OTCLEAD", "EAVILA", "LRODRIGUEZ","ROSMONTE"}
 
 
@@ -1407,6 +1409,7 @@ def show_main_app():
             st.success("Reporte enviado. Gracias por tu feedback.")
     
 show_main_app()
+
 
 
 
